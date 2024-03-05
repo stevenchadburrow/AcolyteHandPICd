@@ -1,0 +1,46 @@
+
+
+NET pic_prd LOC = P39;
+NET pic_pwr LOC = P40;
+NET pic_pcs LOC = P41;
+
+NET latch LOC = P42;
+
+NET master_clock LOC = P43;
+NET hsync LOC = P44;
+NET vsync LOC = P1;
+
+NET video LOC = P2;
+NET not_video LOC = P3;
+
+NET red LOC = P29;
+NET green LOC = P30;
+NET blue LOC = P31;
+NET intensity LOC = P32;
+
+NET ram_ce LOC = P33;
+NET ram_oe LOC = P34;
+NET ram_we LOC = P36;
+
+NET write LOC = P37;
+NET addr LOC = P38;
+
+NET address[0] LOC = P5;
+NET address[1] LOC = P6;
+NET address[2] LOC = P7;
+NET address[3] LOC = P8;
+
+NET address[4] LOC = P12;
+NET address[5] LOC = P13;
+NET address[6] LOC = P14;
+NET address[7] LOC = P16;
+
+NET data[0] LOC = P18;
+NET data[1] LOC = P19;
+NET data[2] LOC = P20;
+NET data[3] LOC = P21;
+
+NET data[4] LOC = P22;
+NET data[5] LOC = P23;
+NET data[6] LOC = P27;
+NET data[7] LOC = P28;
