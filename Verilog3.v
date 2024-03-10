@@ -81,18 +81,18 @@ That should do it???
 
 module Verilog3(
 	input master_clock, // 25.175 MHz
-	output video, // 6.28 MHz
+	inout video, // 6.28 MHz
 	output not_video, // inverted clock
 	input write, // signals from PIC, want to write when low
 	input addr, // signals from PIC, unused?
 	output reg hsync, // video sync signals
 	output reg vsync,
-	output ram_ce, // /CE for RAM
+	output ram_ce, // used to be /CE for RAM, pulled down, now is another clock
 	output ram_oe, // /OE for RAM
 	output ram_we, // /WE for RAM
 	output pic_prd, // parallel read (high enabled)
 	output pic_pwr, // parallel write (high enabled)
-	output pic_pcs, // parallel chip select (high enabled)
+	output pic_pcs, // use to be parallel chip select (high enabled), now is another clock
 	inout [7:0] address,
 	inout [7:0] data,
 	output latch, // latches upper address (during hsync)
@@ -111,44 +111,57 @@ reg hblank; // blanking values
 reg vblank;
 reg vscreen;
 reg prev;
-reg ready;
+reg ready_write;
+reg ready_read;
+reg ready_video;
+reg [7:0] preset_colors;
 
-assign video = eighth;
-assign not_video = ~eighth;
+assign video = 1'bz;
+assign not_video = master_clock;
+assign ram_ce = ~eighth;
+assign pic_pcs = eighth;
 
 assign latch = ~hsync;
 
 // these are A0-A7, changed each pixel, inactive during phi2 high or booting,
 // these supply A8-A15 during h-sync for external latch
 assign address[6:0] = ((~latch && ~eighth) ? video_addr[16:10] :
-	((~eighth) ? video_addr[6:0] :
+	((~video) ? video_addr[6:0] :
 	7'bzzzzzzz));
 assign address[7] = ((~latch && ~eighth) ? video_addr[17] :
 	((~eighth) ? prev :
 	1'bz));
 	
-assign ram_ce = 1'b0;
-assign ram_oe = (~eighth ? 1'b0 : 1'b1);
-assign ram_we = (~eighth ? 1'b1 : ((~ready && eighth && quarter) ? 1'b0 : 1'b1));
+//assign ram_ce = 1'b0;
+assign ram_oe = (~eighth ? 1'b0 : (~ready_read ? 1'b0 : 1'b1));
+assign ram_we = (~eighth ? 1'b1 : ((~ready_write && quarter) ? 1'b0 : 1'b1));
 
-assign pic_pcs = (~eighth ? 1'b1 : 1'b0);
-assign pic_prd = (~eighth ? 1'b1 : (~ready ? 1'b0 : 1'b1));
-assign pic_pwr = (~eighth ? 1'b1 : 1'b1);
+//assign pic_pcs = (~eighth ? 1'b1 : 1'b0);
+assign pic_prd = (~eighth ? 1'b1 : (~ready_write ? 1'b0 : 1'b1));
+assign pic_pwr = (~eighth ? 1'b1 : ((~ready_read && quarter) ? 1'b0 : 1'b1)); //((quarter && ~half) || (~quarter && half)) ? 1'b0 : 1'b1)));
 
 assign data[7:0] = 8'bzzzzzzzz;
 
-
-
 always @(negedge master_clock) begin
 	
-	half <= ~half;
+	ready_video <= video;
 	
-	if (half) begin
-		quarter <= ~quarter;
-		
-		if (quarter) begin
-			eighth <= ~eighth;	
-		end
+	if (ready_video && ~video) begin
+		half <= 1'b0;
+		quarter <= 1'b0;
+		eighth <= ~eighth;
+	end
+	else if (~ready_video && ~video) begin
+		half <= 1'b1;
+		quarter <= 1'b0;
+	end
+	else if (~ready_video && video) begin
+		half <= 1'b0;
+		quarter <= 1'b1;
+	end
+	else if (ready_video && video) begin
+		half <= 1'b1;
+		quarter <= 1'b1;
 	end
 	
 	if (half && ~quarter && eighth) begin
@@ -159,10 +172,40 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= color_data[5];
-			green <= color_data[4];
-			blue <= color_data[4];
-			intensity <= 1'b0;
+			red <= (color_data[5] & preset_colors[7]) | (color_data[4] & preset_colors[3]);
+			green <= (color_data[5] & preset_colors[6]) | (color_data[4] & preset_colors[2]);
+			blue <= (color_data[5] & preset_colors[5]) | (color_data[4] & preset_colors[1]);
+			intensity <= (color_data[5] & preset_colors[4]) | (color_data[4] & preset_colors[0]);
+			//red <= color_data[5];
+			//green <= color_data[4];
+			//blue <= color_data[4];
+			//intensity <= 1'b0;
+			/*
+			if (color_data[5] && color_data[4]) begin
+				red <= 1'b1;
+				green <= 1'b1;
+				blue <= 1'b1;
+				intensity <= 1'b1;
+			end
+			else if (~color_data[5] && ~color_data[4]) begin
+				red <= 1'b0;
+				green <= 1'b0;
+				blue <= 1'b0;
+				intensity <= 1'b0;
+			end
+			else if (color_data[5] && ~color_data[4]) begin
+				red <= preset_colors[7];
+				green <= preset_colors[6];
+				blue <= preset_colors[5];
+				intensity <= preset_colors[4];
+			end
+			else if (~color_data[5] && color_data[4]) begin
+				red <= preset_colors[3];
+				green <= preset_colors[2];
+				blue <= preset_colors[1];
+				intensity <= preset_colors[0];
+			end
+			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -172,7 +215,8 @@ always @(negedge master_clock) begin
 		end
 	end
 	else if (half && quarter && eighth) begin	
-		ready <= 1'b1;
+		ready_write <= 1'b1;
+		ready_read <= 1'b1;
 	
 		if (hblank && vscreen && ~vblank) begin
 			red <= 1'b0;
@@ -181,10 +225,40 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= color_data[3];
-			green <= color_data[2];
-			blue <= color_data[2];
-			intensity <= 1'b0;
+			red <= (color_data[3] & preset_colors[7]) | (color_data[2] & preset_colors[3]);
+			green <= (color_data[3] & preset_colors[6]) | (color_data[2] & preset_colors[2]);
+			blue <= (color_data[3] & preset_colors[5]) | (color_data[2] & preset_colors[1]);
+			intensity <= (color_data[3] & preset_colors[4]) | (color_data[2] & preset_colors[0]);
+			//red <= color_data[3];
+			//green <= color_data[2];
+			//blue <= color_data[2];
+			//intensity <= 1'b0;
+			/*
+			if (color_data[3] && color_data[2]) begin
+				red <= 1'b1;
+				green <= 1'b1;
+				blue <= 1'b1;
+				intensity <= 1'b1;
+			end
+			else if (~color_data[3] && ~color_data[2]) begin
+				red <= 1'b0;
+				green <= 1'b0;
+				blue <= 1'b0;
+				intensity <= 1'b0;
+			end
+			else if (color_data[3] && ~color_data[2]) begin
+				red <= preset_colors[7];
+				green <= preset_colors[6];
+				blue <= preset_colors[5];
+				intensity <= preset_colors[4];
+			end
+			else if (~color_data[3] && color_data[2]) begin
+				red <= preset_colors[3];
+				green <= preset_colors[2];
+				blue <= preset_colors[1];
+				intensity <= preset_colors[0];
+			end
+			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -193,7 +267,7 @@ always @(negedge master_clock) begin
 			intensity <= 1'b0;
 		end
 	end
-	else if (half && ~quarter && ~eighth) begin		
+	else if (half && ~quarter && ~eighth) begin	
 		if (hblank && vscreen && ~vblank) begin
 			red <= 1'b0;
 			green <= 1'b0;
@@ -201,10 +275,40 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= color_data[1];
-			green <= color_data[0];
-			blue <= color_data[0];
-			intensity <= 1'b0;
+			red <= (color_data[1] & preset_colors[7]) | (color_data[0] & preset_colors[3]);
+			green <= (color_data[1] & preset_colors[6]) | (color_data[0] & preset_colors[2]);
+			blue <= (color_data[1] & preset_colors[5]) | (color_data[0] & preset_colors[1]);
+			intensity <= (color_data[1] & preset_colors[4]) | (color_data[0] & preset_colors[0]);
+			//red <= color_data[1];
+			//green <= color_data[0];
+			//blue <= color_data[0];
+			//intensity <= 1'b0;
+			/*
+			if (color_data[1] && color_data[0]) begin
+				red <= 1'b1;
+				green <= 1'b1;
+				blue <= 1'b1;
+				intensity <= 1'b1;
+			end
+			else if (~color_data[1] && ~color_data[0]) begin
+				red <= 1'b0;
+				green <= 1'b0;
+				blue <= 1'b0;
+				intensity <= 1'b0;
+			end
+			else if (color_data[1] && ~color_data[0]) begin
+				red <= preset_colors[7];
+				green <= preset_colors[6];
+				blue <= preset_colors[5];
+				intensity <= preset_colors[4];
+			end
+			else if (~color_data[1] && color_data[0]) begin
+				red <= preset_colors[3];
+				green <= preset_colors[2];
+				blue <= preset_colors[1];
+				intensity <= preset_colors[0];
+			end
+			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -215,7 +319,15 @@ always @(negedge master_clock) begin
 	end
 	else if (half && quarter && ~eighth) begin
 		color_data[5:0] <= data[5:0];
-		ready <= write;
+		
+		if (addr) begin
+			ready_write <= write;
+			ready_read <= 1'b1;
+		end
+		else begin
+			ready_write <= 1'b1;
+			ready_read <= write;
+		end
 	
 		if (hblank && vscreen && ~vblank) begin
 			red <= 1'b0;
@@ -224,10 +336,40 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= data[7];
-			green <= data[6];
-			blue <= data[6];
-			intensity <= 1'b0;
+			red <= (data[7] & preset_colors[7]) | (data[6] & preset_colors[3]);
+			green <= (data[7] & preset_colors[6]) | (data[6] & preset_colors[2]);
+			blue <= (data[7] & preset_colors[5]) | (data[6] & preset_colors[1]);
+			intensity <= (data[7] & preset_colors[4]) | (data[6] & preset_colors[0]);
+			//red <= data[7];
+			//green <= data[6];
+			//blue <= data[6];
+			//intensity <= 1'b0;
+			/*
+			if (data[7] && data[6]) begin
+				red <= 1'b1;
+				green <= 1'b1;
+				blue <= 1'b1;
+				intensity <= 1'b1;
+			end
+			else if (~data[7] && ~data[6]) begin
+				red <= 1'b0;
+				green <= 1'b0;
+				blue <= 1'b0;
+				intensity <= 1'b0;
+			end
+			else if (data[7] && ~data[6]) begin
+				red <= preset_colors[7];
+				green <= preset_colors[6];
+				blue <= preset_colors[5];
+				intensity <= preset_colors[4];
+			end
+			else if (~data[7] && data[6]) begin
+				red <= preset_colors[3];
+				green <= preset_colors[2];
+				blue <= preset_colors[1];
+				intensity <= preset_colors[0];
+			end
+			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -243,6 +385,7 @@ always @(negedge master_clock) begin
 		
 		if (video_addr[7:0] == 8'b01101000) begin
 			hsync <= 1'b1;
+			preset_colors[7:0] <= data[7:0];
 		end
 		
 		if (video_addr[7:0] == 8'b01111000) begin
@@ -275,7 +418,7 @@ always @(negedge master_clock) begin
 		end
 	end
 	
-	if (half && quarter && ~eighth) begin
+	if (half && ~quarter && ~eighth) begin
 	
 		// video blanking signals
 	
