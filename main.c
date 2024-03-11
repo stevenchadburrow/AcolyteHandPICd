@@ -1,3 +1,53 @@
+
+
+/* Microcontroller MIPs (FCY) */
+#define SYS_FREQ        40000000L
+#define FCY             SYS_FREQ/4
+#define _XTAL_FREQ      SYS_FREQ/4
+
+
+// CONFIG1L
+#pragma config WDTEN = OFF      // Watchdog Timer (Disabled - Controlled by SWDTEN bit)
+#pragma config PLLDIV = 1       // 96MHz PLL Prescaler Selection (PLLSEL=0) (No prescale (4 MHz oscillator input drives PLL directly))
+#pragma config CFGPLLEN = OFF//ON    // PLL Enable Configuration Bit (PLL Enabled)
+#pragma config STVREN = ON      // Stack Overflow/Underflow Reset (Enabled)
+#pragma config XINST = OFF      // Extended Instruction Set (Disabled)
+
+// CONFIG1H
+#pragma config CP0 = OFF        // Code Protect (Program memory is not code-protected)
+
+// CONFIG2L
+#pragma config OSC = EC
+#pragma config SOSCSEL = DIG    // T1OSC/SOSC Power Selection Bits (Digital (SCLKI) mode selected)
+#pragma config CLKOEC = ON      // EC Clock Out Enable Bit  (CLKO output enabled on the RA6 pin)
+#pragma config FCMEN = OFF      // Fail-Safe Clock Monitor (Disabled)
+#pragma config IESO = OFF       // Internal External Oscillator Switch Over Mode (Disabled)
+
+// CONFIG2H
+#pragma config WDTPS = 32768    // Watchdog Postscaler (1:32768)
+
+// CONFIG3L
+#pragma config DSWDTOSC = INTOSCREF// DSWDT Clock Select (DSWDT uses INTRC)
+#pragma config RTCOSC = INTOSCREF// RTCC Clock Select (RTCC uses INTRC)
+#pragma config DSBOREN = OFF    // Deep Sleep BOR (Disabled)
+#pragma config DSWDTEN = OFF    // Deep Sleep Watchdog Timer (Disabled)
+#pragma config DSWDTPS = 2      // Deep Sleep Watchdog Postscaler (1:2 (2.1 ms))
+
+// CONFIG3H
+#pragma config IOL1WAY = OFF    // IOLOCK One-Way Set Enable bit (The IOLOCK bit (PPSCON<0>) can be set and cleared as needed)
+#pragma config ADCSEL = BIT10   // ADC 10 or 12 Bit Select (10 - Bit ADC Enabled)
+#pragma config PLLSEL = PLL4X   // PLL Selection Bit (Selects 4x PLL)
+#pragma config MSSP7B_EN = MSK7 // MSSP address masking (7 Bit address masking mode)
+
+// CONFIG4L
+#pragma config WPFP = PAGE_127  // Write/Erase Protect Page Start/End Location (Write Protect Program Flash Page 127)
+#pragma config WPCFG = OFF      // Write/Erase Protect Configuration Region  (Configuration Words page not erase/write-protected)
+
+// CONFIG4H
+#pragma config WPDIS = OFF      // Write Protect Disable bit (WPFP<6:0>/WPEND region ignored)
+#pragma config WPEND = PAGE_WPFP// Write/Erase Protect Region Select bit (valid when WPDIS = 0) (Pages WPFP<6:0> through Configuration Words erase/write protected)
+
+
 /******************************************************************************/
 /* Files to Include                                                           */
 /******************************************************************************/
@@ -17,8 +67,132 @@
 
 #endif
 
-#include "system.h"        /* System funct/params, like osc/peripheral config */
-#include "user.h"          /* User funct/params, such as InitApp */
+
+
+unsigned char keyarray[256];
+unsigned char keybuffer = 0x00;
+unsigned char keycurr = 0x00;
+unsigned char keylast = 0x00;
+unsigned char keyextended = 0x00;
+unsigned char keyrelease = 0x00;
+unsigned char keycounter = 0x00;
+unsigned char keyreadpos = 0x00;
+unsigned char keywritepos = 0x00;
+
+/******************************************************************************/
+/* Interrupt Routines                                                         */
+/******************************************************************************/
+
+/* High-priority service */
+
+#if defined(__XC) || defined(HI_TECH_C)
+void __interrupt(high_priority) high_isr(void)
+#elif defined (__18CXX)
+#pragma code high_isr=0x08
+#pragma interrupt high_isr
+void high_isr(void)
+#else
+#error "Invalid compiler selection for implemented ISR routines"
+#endif
+
+{
+
+      /* This code stub shows general interrupt handling.  Note that these
+      conditional statements are not handled within 3 seperate if blocks.
+      Do not use a seperate if block for each interrupt flag to avoid run
+      time errors. */
+
+#if 0
+    
+      /* TODO Add High Priority interrupt routine code here. */
+
+      /* Determine which flag generated the interrupt */
+      if(<Interrupt Flag 1>)
+      {
+          <Interrupt Flag 1=0>; /* Clear Interrupt Flag 1 */
+      }
+      else if (<Interrupt Flag 2>)
+      {
+          <Interrupt Flag 2=0>; /* Clear Interrupt Flag 2 */
+      }
+      else
+      {
+          /* Unhandled interrupts */
+      }
+
+#endif
+	  
+	RBIF = 0; // clear interrupts for RB
+	
+	keycurr = PORTB;
+	  
+	if ((keylast & 0x40) == 0x40 && (keycurr & 0x40) == 0x00)
+	{		
+		if (keycounter < 0x09)
+		{
+			keybuffer = keybuffer >> 1;
+			keybuffer = keybuffer | (keycurr & 0x80);
+		}
+		
+		keycounter++;
+		
+		if (keycounter == 0x0B)
+		{
+			keycounter = 0x00;
+			
+			keyarray[keywritepos] = keybuffer;
+			
+			keywritepos++;
+		}
+	}
+	
+	keylast = keycurr;
+	 
+	
+
+}
+
+/* Low-priority interrupt routine */
+#if defined(__XC) || defined(HI_TECH_C)
+void __interrupt(low_priority) low_isr(void)
+#elif defined (__18CXX)
+#pragma code low_isr=0x18
+#pragma interruptlow low_isr
+void low_isr(void)
+#else
+#error "Invalid compiler selection for implemented ISR routines"
+#endif
+{
+
+      /* This code stub shows general interrupt handling.  Note that these
+      conditional statements are not handled within 3 seperate if blocks.
+      Do not use a seperate if block for each interrupt flag to avoid run
+      time errors. */
+
+#if 0
+
+      /* TODO Add Low Priority interrupt routine code here. */
+
+      /* Determine which flag generated the interrupt */
+      if(<Interrupt Flag 1>)
+      {
+          <Interrupt Flag 1=0>; /* Clear Interrupt Flag 1 */
+      }
+      else if (<Interrupt Flag 2>)
+      {
+          <Interrupt Flag 2=0>; /* Clear Interrupt Flag 2 */
+      }
+      else
+      {
+          /* Unhandled interrupts */
+      }
+
+#endif
+
+}
+
+
+
 
 /******************************************************************************/
 /* User Global Variable Declaration                                           */
@@ -26,8 +200,86 @@
 
 /* i.e. uint8_t <variable_name>; */
 
+const unsigned char conversion[256] = {
+  	0x00,0x16,0x0C,0x0E,0x1E,0x1C,0x1D,0x15,
+	0x00,0x18,0x07,0x0F,0x1F,0x09,0x60,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x71,0x31,0x00,
+	0x00,0x00,0x7A,0x73,0x61,0x77,0x32,0x00,
+	0x00,0x63,0x78,0x64,0x65,0x34,0x33,0x00,
+	0x00,0x20,0x76,0x66,0x74,0x72,0x35,0x00,
+	0x00,0x6E,0x62,0x68,0x67,0x79,0x36,0x00,
+	0x00,0x00,0x6D,0x6A,0x75,0x37,0x38,0x00,
+	0x00,0x2C,0x6B,0x69,0x6F,0x30,0x39,0x00,
+	0x00,0x2E,0x2F,0x6C,0x3B,0x70,0x2D,0x00,
+	0x00,0x00,0x27,0x00,0x5B,0x3D,0x00,0x00,
+	0x00,0x00,0x0D,0x5D,0x00,0x5C,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x00,
+	0x00,0x31,0x00,0x34,0x37,0x00,0x00,0x00,
+	0x30,0x2E,0x32,0x35,0x36,0x38,0x1B,0x00,
+	0x19,0x2B,0x33,0x2D,0x2A,0x39,0x00,0x00,
 
-unsigned int readjoy() // many signals are done twice but only for safety
+	0x00,0x16,0x0C,0x0E,0x1E,0x1C,0x1D,0x15,
+	0x00,0x18,0x07,0x0F,0x1F,0x09,0x7E,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x51,0x21,0x00,
+	0x00,0x00,0x5A,0x53,0x41,0x57,0x40,0x00,
+	0x00,0x43,0x58,0x44,0x45,0x24,0x23,0x00,
+	0x00,0x20,0x56,0x46,0x54,0x52,0x25,0x00,
+	0x00,0x4E,0x42,0x48,0x47,0x59,0x5E,0x00,
+	0x00,0x00,0x4D,0x4A,0x55,0x26,0x2A,0x00,
+	0x00,0x3C,0x4B,0x49,0x4F,0x29,0x28,0x00,
+	0x00,0x3E,0x3F,0x4C,0x3A,0x50,0x5F,0x00,
+	0x00,0x00,0x22,0x00,0x7B,0x2B,0x00,0x00,
+	0x00,0x00,0x0D,0x7D,0x00,0x7C,0x00,0x00,
+	0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x00,
+	0x00,0x03,0x00,0x13,0x02,0x00,0x00,0x00,
+	0x1A,0x7F,0x12,0x35,0x14,0x11,0x1B,0x00,
+	0x19,0x2B,0x04,0x2D,0x2A,0x01,0x00,0x00
+};
+
+unsigned char readkey(void)
+{
+	volatile unsigned char value = 0x00;
+  
+	if (keyreadpos != keywritepos)
+	{
+		if (keyarray[keyreadpos] == 0xF0) // release
+		{
+			keyrelease = 0x01;
+		}
+		else if (keyarray[keyreadpos] == 0xE0) // extended
+		{
+			keyextended = 0x01;
+		}
+		else
+		{
+			if (keyrelease == 0x01)
+			{
+				keyrelease = 0x00;
+				keyextended = 0x00;
+			}
+			else
+			{
+				if (keyextended == 0x01)
+				{
+					value = conversion[keyarray[keyreadpos] + 0x80];
+				}
+				else
+				{
+					value = conversion[keyarray[keyreadpos]];
+				}
+				
+				keyextended = 0x00;
+			}
+		}
+	
+		keyreadpos++;
+	}
+	
+	return value;
+};
+
+
+unsigned int readjoy(void) // many signals are done twice but only for safety
 { 
 	volatile unsigned char joy_a = 0xFF;
 	volatile unsigned char joy_b = 0xFF;
@@ -51,7 +303,7 @@ unsigned int readjoy() // many signals are done twice but only for safety
 	
 	for (i=0x00; i<0x06; i++)
 	{
-		joy_a = joy_a << 1;
+		joy_a = (unsigned char)(joy_a << 1);
 		if (RB5 != 0) joy_a = joy_a | 0x01;
 		LATB = 0x0F;
 		LATB = 0x0F;
@@ -61,7 +313,7 @@ unsigned int readjoy() // many signals are done twice but only for safety
 	
 	for (i=0x00; i<0x06; i++)
 	{
-		joy_b = joy_b << 1;
+		joy_b = (unsigned char)(joy_b << 1);
 		if (RB5 != 0) joy_b = joy_b | 0x01;
 		LATB = 0x0F;
 		LATB = 0x0F;
@@ -92,7 +344,7 @@ unsigned int readjoy() // many signals are done twice but only for safety
 	
 	for (i=0x00; i<0x02; i++)
 	{
-		joy_a = joy_a << 1;
+		joy_a = (unsigned char)(joy_a << 1);
 		if (RB5 != 0) joy_a = joy_a | 0x01;
 		LATB = 0x0F;
 		LATB = 0x0F;
@@ -110,7 +362,7 @@ unsigned int readjoy() // many signals are done twice but only for safety
 	
 	for (i=0x00; i<0x02; i++)
 	{
-		joy_b = joy_b << 1;
+		joy_b = (unsigned char)(joy_b << 1);
 		if (RB5 != 0) joy_b = joy_b | 0x01;
 		LATB = 0x0F;
 		LATB = 0x0F;
@@ -148,30 +400,30 @@ void transmitchar(char value)
 
 void highaddr(unsigned char value)
 {
-	PORTC = value;
-	PORTB = 0x01;
-	PORTB = 0x03;
+	LATC = value;
+	LATB = 0x01;
+	LATB = 0x03;
 };
 
 void lowaddr(unsigned char value)
 {
-	PORTC = value;
+	LATC = value;
 };
 
 void writedata(unsigned char value)
 {
 	PMDOUT1L = value;
-	PORTB = 0x02;
-	PORTB = 0x03;
+	LATB = 0x02;
+	LATB = 0x03;
 };
 
-unsigned char readdata() // requires highaddr() afterwards, works best if done twice
+unsigned char readdata(void) // requires highaddr() afterwards, works best if done twice
 { 
     PMSTATH = 0x00;
-	PORTB = 0x01;
-	PORTB = 0x00;
-	PORTB = 0x01;
-	PORTB = 0x01; // needs a second for delay purposes
+	LATB = 0x01;
+	LATB = 0x00;
+	LATB = 0x01;
+	LATB = 0x01; // needs a second for delay purposes
 	return PMDIN1L;
 };
 
@@ -654,18 +906,14 @@ volatile unsigned int timer = 0;
 volatile unsigned int joy_curr = 0x0000;
 volatile unsigned int joy_prev = 0x0000;
 volatile unsigned int joy_delay = 0;
+volatile unsigned char key_value = 0x00;
 
 void main(void)
 {
-    /* Configure the oscillator for the device */
-    ConfigureOscillator();
-
-    /* Initialize I/O and Peripherals for application */
-    InitApp();
 
     /* TODO <INSERT USER APPLICATION CODE HERE> */
 
-	__delay_ms(1000); // delay at beginning until everything is stabilized
+	__delay_ms(2000); // delay at beginning until everything is stabilized
 	
 	// setup initial tri-state and output levels
 	PORTA = 0x00;
@@ -684,7 +932,7 @@ void main(void)
 	LATE = 0x00;
 	TRISE = 0x0F; // 0xFF or 0xF0
 	
-	// disable interrupts
+	// disable interrupts except for keyboard clock
 	INTCON = 0x00;
 	INTCON2 = 0x80;
 	INTCON3 = 0x00;
@@ -693,6 +941,11 @@ void main(void)
 	PIE3 = 0x00;
 	PIE4 = 0x00;
 	PIE5 = 0x00;
+	IPEN = 1; // enable interrupt priorities
+	RBIP = 1; // high priority for RB
+	RBIE = 1; // enable interrupt for RB
+	GIEH = 1; // enables high priority interrupts
+	
 	
 	// disable analog for digital I/O
 	ANCON0 = 0xFF;
@@ -749,6 +1002,7 @@ void main(void)
 			writedata(0xB7);
 		}
 	}
+		
 	
 	/*
 	display(0x00, 0x00, 'A');
@@ -783,12 +1037,11 @@ void main(void)
 	}
 	
 	while (1)
-	{
+	{	
 		joy_prev = joy_curr;
-		joy_curr = readjoy();
+		joy_curr = readjoy(); // 0xFFFF
 		
-		hex(0x2E, 0x00, (unsigned char)((joy_curr & 0xFF00) >> 8));
-		hex(0x30, 0x00, (unsigned char)(joy_curr & 0x00FF));
+		key_value = readkey();
 		
 		__delay_ms(10); // determines delay between calculations
 		
@@ -817,34 +1070,34 @@ void main(void)
 			joy_delay = 0;
 			joy_prev = joy_prev | 0xF0F0;
 		}
-	
-		if (((joy_curr & 0x8000) == 0x0000) && ((joy_prev & 0x8000) == 0x8000)) // up
+		
+		if ((((joy_curr & 0x8000) == 0x0000) && ((joy_prev & 0x8000) == 0x8000)) || key_value == 0x77) // up
 		{
 			timer = 1; // not zero
 			joy_delay = 0;
 		}
-		else if (((joy_curr & 0x4000) == 0x0000) && ((joy_prev & 0x4000) == 0x4000)) // down
+		else if ((((joy_curr & 0x4000) == 0x0000) && ((joy_prev & 0x4000) == 0x4000)) || key_value == 0x73) // down
 		{
 			timer = 0;
 			joy_delay = 0;
 		}
-		else if (((joy_curr & 0x2000) == 0x0000) && ((joy_prev & 0x2000) == 0x2000)) // left
+		else if ((((joy_curr & 0x2000) == 0x0000) && ((joy_prev & 0x2000) == 0x2000)) || key_value == 0x61) // left
 		{
 			new_pos_x--;
 			joy_delay = 0;
 		}
-		else if (((joy_curr & 0x1000) == 0x0000) && ((joy_prev & 0x1000) == 0x1000)) // right
+		else if ((((joy_curr & 0x1000) == 0x0000) && ((joy_prev & 0x1000) == 0x1000)) || key_value == 0x64) // right
 		{
 			new_pos_x++;
 			joy_delay = 0;
 		}
-		else if (((joy_curr & 0x0800) == 0x0000) && ((joy_prev & 0x0800) == 0x0800)) // button 1
+		else if ((((joy_curr & 0x0800) == 0x0000) && ((joy_prev & 0x0800) == 0x0800)) || key_value == 0x71) // button 1
 		{
 			new_rot++;
-			if (rot == 4) new_rot = 0;
+			if (new_rot == 4) new_rot = 0;
 			joy_delay = 0;
 		}
-		else if (((joy_curr & 0x0400) == 0x0000) && ((joy_prev & 0x0400) == 0x0400)) // button 2
+		else if ((((joy_curr & 0x0400) == 0x0000) && ((joy_prev & 0x0400) == 0x0400)) || key_value == 0x65) // button 2
 		{
 			if (new_rot == 0) new_rot = 3;
 			else new_rot--;
@@ -991,6 +1244,14 @@ void main(void)
 		
 		hex(0x0A, 0x00, (unsigned char)((lines & 0xFF00) >> 8));
 		hex(0x0C, 0x00, (unsigned char)(lines & 0x00FF));
+		
+		hex(0x2E, 0x00, (unsigned char)((joy_curr & 0xFF00) >> 8));
+		hex(0x30, 0x00, (unsigned char)(joy_curr & 0x00FF));
+
+		if (key_value != 0x00)
+		{
+			hex(0x2C, 0x00, key_value);
+		}
 	}
 
 }
