@@ -172,40 +172,12 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= (color_data[5] & preset_colors[7]) | (color_data[4] & preset_colors[3]);
-			green <= (color_data[5] & preset_colors[6]) | (color_data[4] & preset_colors[2]);
-			blue <= (color_data[5] & preset_colors[5]) | (color_data[4] & preset_colors[1]);
-			intensity <= (color_data[5] & preset_colors[4]) | (color_data[4] & preset_colors[0]);
-			//red <= color_data[5];
-			//green <= color_data[4];
-			//blue <= color_data[4];
-			//intensity <= 1'b0;
-			/*
-			if (color_data[5] && color_data[4]) begin
-				red <= 1'b1;
-				green <= 1'b1;
-				blue <= 1'b1;
-				intensity <= 1'b1;
-			end
-			else if (~color_data[5] && ~color_data[4]) begin
-				red <= 1'b0;
-				green <= 1'b0;
-				blue <= 1'b0;
-				intensity <= 1'b0;
-			end
-			else if (color_data[5] && ~color_data[4]) begin
-				red <= preset_colors[7];
-				green <= preset_colors[6];
-				blue <= preset_colors[5];
-				intensity <= preset_colors[4];
-			end
-			else if (~color_data[5] && color_data[4]) begin
-				red <= preset_colors[3];
-				green <= preset_colors[2];
-				blue <= preset_colors[1];
-				intensity <= preset_colors[0];
-			end
-			*/
+			if (preset_colors[7:0] != 8'b00000000) begin
+				red <= (color_data[5] & preset_colors[7]) | (color_data[4] & preset_colors[3]);
+				green <= (color_data[5] & preset_colors[6]) | (color_data[4] & preset_colors[2]);
+				blue <= (color_data[5] & preset_colors[5]) | (color_data[4] & preset_colors[1]);
+				intensity <= (color_data[5] & preset_colors[4]) | (color_data[4] & preset_colors[0]);
+			end	
 		end
 		else begin
 			red <= 1'b0;
@@ -225,40 +197,18 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= (color_data[3] & preset_colors[7]) | (color_data[2] & preset_colors[3]);
-			green <= (color_data[3] & preset_colors[6]) | (color_data[2] & preset_colors[2]);
-			blue <= (color_data[3] & preset_colors[5]) | (color_data[2] & preset_colors[1]);
-			intensity <= (color_data[3] & preset_colors[4]) | (color_data[2] & preset_colors[0]);
-			//red <= color_data[3];
-			//green <= color_data[2];
-			//blue <= color_data[2];
-			//intensity <= 1'b0;
-			/*
-			if (color_data[3] && color_data[2]) begin
-				red <= 1'b1;
-				green <= 1'b1;
-				blue <= 1'b1;
-				intensity <= 1'b1;
+			if (preset_colors[7:0] == 8'b00000000) begin
+				red <= color_data[3];
+				green <= color_data[2];
+				blue <= color_data[1];
+				intensity <= color_data[0];
 			end
-			else if (~color_data[3] && ~color_data[2]) begin
-				red <= 1'b0;
-				green <= 1'b0;
-				blue <= 1'b0;
-				intensity <= 1'b0;
+			else begin
+				red <= (color_data[3] & preset_colors[7]) | (color_data[2] & preset_colors[3]);
+				green <= (color_data[3] & preset_colors[6]) | (color_data[2] & preset_colors[2]);
+				blue <= (color_data[3] & preset_colors[5]) | (color_data[2] & preset_colors[1]);
+				intensity <= (color_data[3] & preset_colors[4]) | (color_data[2] & preset_colors[0]);
 			end
-			else if (color_data[3] && ~color_data[2]) begin
-				red <= preset_colors[7];
-				green <= preset_colors[6];
-				blue <= preset_colors[5];
-				intensity <= preset_colors[4];
-			end
-			else if (~color_data[3] && color_data[2]) begin
-				red <= preset_colors[3];
-				green <= preset_colors[2];
-				blue <= preset_colors[1];
-				intensity <= preset_colors[0];
-			end
-			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -275,40 +225,12 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= (color_data[1] & preset_colors[7]) | (color_data[0] & preset_colors[3]);
-			green <= (color_data[1] & preset_colors[6]) | (color_data[0] & preset_colors[2]);
-			blue <= (color_data[1] & preset_colors[5]) | (color_data[0] & preset_colors[1]);
-			intensity <= (color_data[1] & preset_colors[4]) | (color_data[0] & preset_colors[0]);
-			//red <= color_data[1];
-			//green <= color_data[0];
-			//blue <= color_data[0];
-			//intensity <= 1'b0;
-			/*
-			if (color_data[1] && color_data[0]) begin
-				red <= 1'b1;
-				green <= 1'b1;
-				blue <= 1'b1;
-				intensity <= 1'b1;
+			if (preset_colors[7:0] != 8'b00000000) begin
+				red <= (color_data[1] & preset_colors[7]) | (color_data[0] & preset_colors[3]);
+				green <= (color_data[1] & preset_colors[6]) | (color_data[0] & preset_colors[2]);
+				blue <= (color_data[1] & preset_colors[5]) | (color_data[0] & preset_colors[1]);
+				intensity <= (color_data[1] & preset_colors[4]) | (color_data[0] & preset_colors[0]);
 			end
-			else if (~color_data[1] && ~color_data[0]) begin
-				red <= 1'b0;
-				green <= 1'b0;
-				blue <= 1'b0;
-				intensity <= 1'b0;
-			end
-			else if (color_data[1] && ~color_data[0]) begin
-				red <= preset_colors[7];
-				green <= preset_colors[6];
-				blue <= preset_colors[5];
-				intensity <= preset_colors[4];
-			end
-			else if (~color_data[1] && color_data[0]) begin
-				red <= preset_colors[3];
-				green <= preset_colors[2];
-				blue <= preset_colors[1];
-				intensity <= preset_colors[0];
-			end
-			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -336,40 +258,18 @@ always @(negedge master_clock) begin
 			intensity <= 1'b1;
 		end
 		else if (hblank && vscreen && vblank) begin
-			red <= (data[7] & preset_colors[7]) | (data[6] & preset_colors[3]);
-			green <= (data[7] & preset_colors[6]) | (data[6] & preset_colors[2]);
-			blue <= (data[7] & preset_colors[5]) | (data[6] & preset_colors[1]);
-			intensity <= (data[7] & preset_colors[4]) | (data[6] & preset_colors[0]);
-			//red <= data[7];
-			//green <= data[6];
-			//blue <= data[6];
-			//intensity <= 1'b0;
-			/*
-			if (data[7] && data[6]) begin
-				red <= 1'b1;
-				green <= 1'b1;
-				blue <= 1'b1;
-				intensity <= 1'b1;
+			if (preset_colors[7:0] == 8'b00000000) begin
+				red <= data[7];
+				green <= data[6];
+				blue <= data[5];
+				intensity <= data[4];
 			end
-			else if (~data[7] && ~data[6]) begin
-				red <= 1'b0;
-				green <= 1'b0;
-				blue <= 1'b0;
-				intensity <= 1'b0;
+			else begin
+				red <= (data[7] & preset_colors[7]) | (data[6] & preset_colors[3]);
+				green <= (data[7] & preset_colors[6]) | (data[6] & preset_colors[2]);
+				blue <= (data[7] & preset_colors[5]) | (data[6] & preset_colors[1]);
+				intensity <= (data[7] & preset_colors[4]) | (data[6] & preset_colors[0]);
 			end
-			else if (data[7] && ~data[6]) begin
-				red <= preset_colors[7];
-				green <= preset_colors[6];
-				blue <= preset_colors[5];
-				intensity <= preset_colors[4];
-			end
-			else if (~data[7] && data[6]) begin
-				red <= preset_colors[3];
-				green <= preset_colors[2];
-				blue <= preset_colors[1];
-				intensity <= preset_colors[0];
-			end
-			*/
 		end
 		else begin
 			red <= 1'b0;
@@ -385,7 +285,10 @@ always @(negedge master_clock) begin
 		
 		if (video_addr[7:0] == 8'b01101000) begin
 			hsync <= 1'b1;
-			preset_colors[7:0] <= data[7:0];
+			
+			if (vblank) begin
+				preset_colors[7:0] <= data[7:0];
+			end
 		end
 		
 		if (video_addr[7:0] == 8'b01111000) begin
@@ -394,24 +297,22 @@ always @(negedge master_clock) begin
 		end
 
 		if (video_addr[7:0] == 8'b10000011) begin	
-			if (video_addr[17:8] == 10'b1001011001) begin
+			if (video_addr[17:8] == 10'b1000101101) begin //10'b1001011001) begin
 				vsync <= 1'b1;
 			end
 			
-			if (video_addr[17:8] == 10'b1001011101) begin
+			if (video_addr[17:8] == 10'b1000110001) begin //10'b1001011101) begin
 				vsync <= 1'b0;
 			end
 
 			if (video_addr[17:8] == 10'b1001110011) begin
 				video_addr[17:8] <= 10'b0000000000;
-				//vblank <= 1'b1;
 			end
 			else begin
 				video_addr[17:8] <= video_addr[17:8] + 1;
 			end
 			
 			video_addr[7:0] <= 8'b00000000;
-			//hblank <= 1'b1;
 		end
 		else begin
 			video_addr[7:0] <= video_addr[7:0] + 1;
@@ -435,13 +336,16 @@ always @(negedge master_clock) begin
 				vblank <= 1'b0;
 			end
 			
-			if (video_addr[17:8] == 10'b1001011000) begin
+			if (video_addr[17:8] == 10'b1000101100) begin //10'b1001011000) begin
 				vscreen <= 1'b0;
+			end
+			
+			if (video_addr[17:8] == 10'b1001001000) begin //10'b0000000000) begin
+				vscreen <= 1'b1;
 			end
 			
 			if (video_addr[17:8] == 10'b0000000000) begin
 				vblank <= 1'b1;
-				vscreen <= 1'b1;
 			end
 		end
 	end
