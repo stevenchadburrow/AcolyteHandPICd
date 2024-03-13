@@ -79,6 +79,9 @@ unsigned char keycounter = 0x00;
 unsigned char keyreadpos = 0x00;
 unsigned char keywritepos = 0x00;
 
+unsigned int tmr0value = 0x0000;
+unsigned int tmr0counter = 0x0000;
+
 /******************************************************************************/
 /* Interrupt Routines                                                         */
 /******************************************************************************/
@@ -121,32 +124,48 @@ void high_isr(void)
       }
 
 #endif
-	  
-	RBIF = 0; // clear interrupts for RB
 	
-	keycurr = PORTB;
-	  
-	if ((keylast & 0x40) == 0x40 && (keycurr & 0x40) == 0x00)
-	{		
-		if (keycounter < 0x09)
-		{
-			keybuffer = keybuffer >> 1;
-			keybuffer = keybuffer | (keycurr & 0x80);
+	if (RBIF == 1)
+	{
+		RBIF = 0; // clear interrupts for RB
+
+		keycurr = PORTB;
+
+		if ((keylast & 0x40) == 0x40 && (keycurr & 0x40) == 0x00)
+		{		
+			if (keycounter < 0x09)
+			{
+				keybuffer = keybuffer >> 1;
+				keybuffer = keybuffer | (keycurr & 0x80);
+			}
+
+			keycounter++;
+
+			if (keycounter == 0x0B)
+			{
+				keycounter = 0x00;
+
+				keyarray[keywritepos] = keybuffer;
+
+				keywritepos++;
+			}
 		}
-		
-		keycounter++;
-		
-		if (keycounter == 0x0B)
-		{
-			keycounter = 0x00;
-			
-			keyarray[keywritepos] = keybuffer;
-			
-			keywritepos++;
-		}
+
+		keylast = keycurr;
 	}
-	
-	keylast = keycurr;
+	else if (TMR0IF == 1)
+	{
+		TMR0IF = 0; // clear interrupts for TMR0
+		
+		TMR0 = tmr0value; // reset TMR0
+		
+		if (RA5 == 0) LATA = LATA | 0xF0;
+		else LATA = LATA & 0x0F; // toggle RA5
+		
+		tmr0counter--;
+		
+		if (tmr0counter == 0x0000) TMR0ON = 0;
+	}
 	 
 	
 
@@ -234,6 +253,15 @@ const unsigned char conversion[256] = {
 	0x00,0x03,0x00,0x13,0x02,0x00,0x00,0x00,
 	0x1A,0x7F,0x12,0x35,0x14,0x11,0x1B,0x00,
 	0x19,0x2B,0x04,0x2D,0x2A,0x01,0x00,0x00
+};
+
+void sound(unsigned int value, unsigned int duration)
+{
+	tmr0value = value;
+	tmr0counter = duration;
+	
+	if (value == 0x0000 || duration == 0x0000) TMR0ON = 0;
+	else TMR0ON = 1;
 };
 
 unsigned char readkey(void)
@@ -734,6 +762,33 @@ void hex(unsigned char x, unsigned char y, unsigned char value)
 	else display(x + 0x01, y, (unsigned char)(temp - 0x0A + 'A'));
 };
 
+void decimal(unsigned char x, unsigned char y, unsigned int value)
+{
+	volatile unsigned int temp = 0;
+	volatile unsigned int next = 0;
+	
+	next = value;
+	
+	temp = next / 10000;
+	display(x, y, (unsigned char)(temp + '0'));
+	next = next - 10000 * temp;
+	
+	temp = next / 1000;
+	display(x + 0x01, y, (unsigned char)(temp + '0'));
+	next = next - 1000 * temp;
+	
+	temp = next / 100;
+	display(x + 0x02, y, (unsigned char)(temp + '0'));
+	next = next - 100 * temp;
+	
+	temp = next / 10;
+	display(x + 0x03, y, (unsigned char)(temp + '0'));
+	next = next - 10 * temp;
+	
+	temp = next;
+	display(x + 0x04, y, (unsigned char)(temp + '0'));
+};
+
 /******************************************************************************/
 /* Main Program                                                               */
 /******************************************************************************/
@@ -803,30 +858,30 @@ const char map[448] = {
 	' ', ' ', ' ', ' ',
 	
 	// O
-	' ', ' ', ' ', ' ',
 	' ', '*', '*', ' ',
 	' ', '*', '*', ' ',
 	' ', ' ', ' ', ' ',
-	
-	' ', ' ', ' ', ' ',
-	' ', '*', '*', ' ',
-	' ', '*', '*', ' ',
 	' ', ' ', ' ', ' ',
 	
+	' ', '*', '*', ' ',
+	' ', '*', '*', ' ',
 	' ', ' ', ' ', ' ',
-	' ', '*', '*', ' ',
-	' ', '*', '*', ' ',
 	' ', ' ', ' ', ' ',
 	
+	' ', '*', '*', ' ',
+	' ', '*', '*', ' ',
 	' ', ' ', ' ', ' ',
+	' ', ' ', ' ', ' ',
+	
 	' ', '*', '*', ' ',
 	' ', '*', '*', ' ',
+	' ', ' ', ' ', ' ',
 	' ', ' ', ' ', ' ',
 	
 	// S
-	' ', ' ', ' ', ' ',
+	' ', ' ', '*', '*',
 	' ', '*', '*', ' ',
-	'*', '*', ' ', ' ',
+	' ', ' ', ' ', ' ',
 	' ', ' ', ' ', ' ',
 	
 	' ', '*', ' ', ' ',
@@ -834,9 +889,9 @@ const char map[448] = {
 	' ', ' ', '*', ' ',
 	' ', ' ', ' ', ' ',
 	
-	' ', ' ', ' ', ' ',
+	' ', ' ', '*', '*',
 	' ', '*', '*', ' ',
-	'*', '*', ' ', ' ',
+	' ', ' ', ' ', ' ',
 	' ', ' ', ' ', ' ',
 	
 	' ', '*', ' ', ' ',
@@ -866,9 +921,9 @@ const char map[448] = {
 	' ', ' ', ' ', ' ',
 	
 	// Z
-	' ', ' ', ' ', ' ',
 	'*', '*', ' ', ' ',
 	' ', '*', '*', ' ',
+	' ', ' ', ' ', ' ',
 	' ', ' ', ' ', ' ',
 	
 	' ', ' ', '*', ' ',
@@ -876,9 +931,9 @@ const char map[448] = {
 	' ', '*', ' ', ' ',
 	' ', ' ', ' ', ' ',
 	
-	' ', ' ', ' ', ' ',
 	'*', '*', ' ', ' ',
 	' ', '*', '*', ' ',
+	' ', ' ', ' ', ' ',
 	' ', ' ', ' ', ' ',
 	
 	' ', ' ', '*', ' ',
@@ -887,26 +942,133 @@ const char map[448] = {
 	' ', ' ', ' ', ' ',
 };
 
-const unsigned char size_x = 10;
-const unsigned char size_y = 21;
-volatile unsigned char board[210];
+const unsigned char random[7 * 16] = {
+	0, 4, 3, 6, 2, 5, 1,
+	4, 1, 3, 5, 2, 0, 6,
+	6, 5, 2, 0, 4, 1, 3,
+	5, 4, 6, 0, 3, 1, 2,
+	
+	6, 0, 1, 5, 3, 4, 2,
+	2, 4, 0, 5, 1, 6, 3,
+	3, 1, 6, 2, 4, 0, 5,
+	4, 5, 1, 6, 0, 2, 3,
+	
+	6, 5, 0, 1, 4, 3, 2,
+	3, 5, 2, 6, 1, 0, 4,
+	1, 3, 6, 5, 4, 2, 0,
+	2, 4, 6, 0, 1, 3, 5,
+	
+	5, 2, 6, 0, 4, 1, 3,
+	5, 0, 2, 4, 6, 1, 3,
+	1, 4, 2, 6, 0, 3, 5,
+	6, 0, 3, 2, 5, 4, 1
+};
 
-volatile unsigned char pos_x = 7; // start at 4
-volatile unsigned char pos_y = 4; // start at 4
-volatile unsigned char rot = 0;
-volatile unsigned char new_pos_x = 7;
-volatile unsigned char new_rot = 0;
-volatile unsigned char piece = 0;
+void solid(unsigned char x, unsigned char y, unsigned char value)
+{
+	volatile unsigned char low = x * 2;
+	volatile unsigned char high = y * 4;
+	volatile unsigned char i = 0x00;
+	
+	highaddr(high);
+	high++;
+	lowaddr(low);
+	low++;
+  
+	for (i=0; i<4; i++)
+	{
+		writedata(value);
+		lowaddr(low);
+		low += 0x7F;
+		writedata(value);
+		lowaddr(low);
+		low++;
+		writedata(value);
+		lowaddr(low);
+		low = x * 2;
+		writedata(value);
+		highaddr(high);
+		high++;
+		lowaddr(low);
+		low++;
+	}
+};
+
+void block(unsigned char x, unsigned char y, unsigned char value)
+{
+	volatile unsigned char low = x * 2;
+	volatile unsigned char high = y * 4;
+	volatile unsigned char i = 0x00;
+	
+	highaddr(high);
+	high++;
+	lowaddr(low);
+	low++;
+  
+	for (i=0; i<4; i++)
+	{
+		if (i == 0) writedata(0xFF);
+		else writedata(value | 0xF0);
+		lowaddr(low);
+		low += 0x7F;
+		if (i == 0) writedata(0xFF);
+		else writedata(value);
+		lowaddr(low);
+		low++;
+		writedata(value | 0xF0);
+		lowaddr(low);
+		low = x * 2;
+		writedata(value);
+		highaddr(high);
+		high++;
+		lowaddr(low);
+		low++;
+	}
+};
+
+void string(unsigned char x, unsigned char y, char *value)
+{
+	volatile unsigned char pos = 0;
+	
+	while (value[pos] != '\\')
+	{
+		display(x + pos, y, value[pos]);
+		
+		pos++;
+	}
+};
+
+const unsigned char size_x = 10;
+const unsigned char size_y = 25;
+volatile unsigned char board[2*250];
+
+volatile unsigned char pos_x[2]; // start at 4
+volatile unsigned char pos_y[2]; // start at 4
+volatile unsigned char rot[2];
+volatile unsigned char new_pos_x[2];
+volatile unsigned char new_rot[2];
+volatile unsigned char piece[2];
+volatile unsigned char new_piece[2];
 
 volatile unsigned char test = 0;
+volatile unsigned char count = 0;
+volatile unsigned char seed = 0;
 
-volatile unsigned int lines = 0;
-volatile unsigned int timer = 0;
+volatile unsigned char bag[14];
+volatile unsigned char bag_pos[2];
+
+volatile unsigned char speed[2];
+
+volatile unsigned int lines[2];
+volatile unsigned int timer[2];
 	
-volatile unsigned int joy_curr = 0x0000;
-volatile unsigned int joy_prev = 0x0000;
-volatile unsigned int joy_delay = 0;
 volatile unsigned char key_value = 0x00;
+
+volatile unsigned char joy_curr[2];
+volatile unsigned char joy_prev[2];
+volatile unsigned int joy_delay[2];
+
+volatile unsigned char game_over[2];
 
 void main(void)
 {
@@ -932,7 +1094,7 @@ void main(void)
 	LATE = 0x00;
 	TRISE = 0x0F; // 0xFF or 0xF0
 	
-	// disable interrupts except for keyboard clock
+	// disable interrupts
 	INTCON = 0x00;
 	INTCON2 = 0x80;
 	INTCON3 = 0x00;
@@ -941,10 +1103,23 @@ void main(void)
 	PIE3 = 0x00;
 	PIE4 = 0x00;
 	PIE5 = 0x00;
+	
+	// enable interrupts for keyboard clock
 	IPEN = 1; // enable interrupt priorities
 	RBIP = 1; // high priority for RB
 	RBIE = 1; // enable interrupt for RB
 	GIEH = 1; // enables high priority interrupts
+	
+	// enable Timer0 and interrupts
+	T0CON = 0x0F;
+	TMR0IP = 1;
+	TMR0IF = 0;
+	TMR0IE = 1;
+	TMR0 = 0xC000;
+	TMR0ON = 1;
+	
+	sound(0x0000, 0x0000); // turn off sound
+	
 	
 	
 	// disable analog for digital I/O
@@ -981,182 +1156,249 @@ void main(void)
 		for (volatile unsigned char j=0; j<100; j++)
 		{
 			lowaddr((unsigned char)(j));
-			writedata((unsigned char)(i) + (unsigned char)(j));
+			if (i < 8 || i >= 120) writedata(0xAA);
+			else writedata((unsigned char)(i + j)); //0xEE);
 		}
 		
 		for (volatile unsigned char j=100; j<128; j++)
 		{
 			lowaddr((unsigned char)(j));
-			writedata(0xB7);
+			if (i < 8 || i >= 120) writedata(0xEF); // 0xB7
+			else writedata(0x00);
 		}
 		
-		for (volatile unsigned char j=128; j<200; j++)
+		for (volatile unsigned char j=128; j<228; j++)
 		{
 			lowaddr((unsigned char)(j));
-			writedata((unsigned char)(i) + (unsigned char)(j));
+			if (i < 8 || i >= 120) writedata(0xAA);
+			else writedata((unsigned char)(i + j)); //0xEE);
 		}
 		
-		for (volatile unsigned char j=200; j<255; j++)
+		for (volatile unsigned char j=228; j<255; j++)
 		{
 			lowaddr((unsigned char)(j));
-			writedata(0xB7);
+			if (i < 8 || i >= 120) writedata(0xEF); // 0xB7
+			else writedata(0x00);
 		}
 	}
-		
 	
-	/*
-	display(0x00, 0x00, 'A');
-	display(0x01, 0x00, 'c');
-	display(0x02, 0x00, 'o');
-	display(0x03, 0x00, 'l');
-	display(0x04, 0x00, 'y');
-	display(0x05, 0x00, 't');
-	display(0x06, 0x00, 'e');
-	display(0x07, 0x00, ' ');
-	display(0x08, 0x00, '-');
-	display(0x09, 0x00, ' ');
-	display(0x0A, 0x00, 'H');
-	display(0x0B, 0x00, 'a');
-	display(0x0C, 0x00, 'n');
-	display(0x0D, 0x00, 'd');
-	display(0x0E, 0x00, ' ');
-	display(0x0F, 0x00, 'P');
-	display(0x10, 0x00, 'I');
-	display(0x11, 0x00, 'C');
-	display(0x12, 0x00, '\'');
-	display(0x13, 0x00, 'd');
-	*/
-
-	for (volatile unsigned char i=0; i<size_y; i++)
+	string(0x16, 0x00, "Tetra!\\");
+	
+	for (volatile unsigned char z=0; z<2; z++)
 	{
-		for (volatile unsigned char j=0; j<size_x; j++)
+		pos_x[z] = 7; // start at 4
+		pos_y[z] = 4; // start at 4
+		rot[z] = 0;
+		new_pos_x[z] = 7;
+		new_rot[z] = 0;
+		piece[z] = 0;
+		new_piece[z] = 1;
+		
+		for (volatile unsigned char i=0; i<7; i++)
 		{
-			if (i != size_y - 1) board[j + i * size_x] = ' '; // empty
-			else board[j + i * size_x] = '_'; // permanent bottom
+			bag[i + z * 7] = i;
+		}
+		
+		bag_pos[z] = 1;
+		
+		speed[z] = 0; // max of 37
+
+		lines[z] = 0;
+		timer[z] = 0;
+
+		joy_curr[z] = 0x00;
+		joy_prev[z] = 0x00;
+		joy_delay[z] = 0;
+		
+		game_over[z] = 0x01;
+
+		for (volatile unsigned char i=0; i<size_y; i++)
+		{
+			for (volatile unsigned char j=0; j<size_x; j++)
+			{
+				if (i != size_y - 1)
+				{
+					board[j + i * size_x + z * size_x * size_y] = ' '; // empty
+				}
+				else
+				{
+					board[j + i * size_x + z * size_x * size_y] = '_'; // permanent bottom
+				}
+			}
 		}
 	}
 	
 	while (1)
 	{	
-		joy_prev = joy_curr;
-		joy_curr = readjoy(); // 0xFFFF
+		seed++; // random seed
+		
+		unsigned volatile int joy_both = readjoy();
+		
+		joy_prev[0] = joy_curr[0];
+		joy_curr[0] = (unsigned char)((joy_both & 0xFF00) >> 8);
+		
+		joy_prev[1] = joy_curr[1];
+		joy_curr[1] = (unsigned char)((joy_both & 0x00FF));
 		
 		key_value = readkey();
 		
-		__delay_ms(10); // determines delay between calculations
+		__delay_ms(15); // determines delay between calculations
 		
-		for (volatile unsigned char i=0; i<size_y; i++)
+		for (volatile unsigned char z=0; z<2; z++)
 		{
-			for (volatile unsigned char j=0; j<size_x; j++)
+			if (game_over[z] == 0)
 			{
-				if (board[j + i * size_x] == '*') board[j + i * size_x] = ' ';
-			}
-		}
-		
-		new_pos_x = pos_x;
-		new_rot = rot;
-		
-		timer++;
-		
-		if (timer > 50) // determines how fast it falls
-		{
-			timer = 0;
-		}
-		
-		joy_delay++;
-		
-		if (joy_delay > 5) // determines button turbo speed
-		{
-			joy_delay = 0;
-			joy_prev = joy_prev | 0xF0F0;
-		}
-		
-		if ((((joy_curr & 0x8000) == 0x0000) && ((joy_prev & 0x8000) == 0x8000)) || key_value == 0x77) // up
-		{
-			timer = 1; // not zero
-			joy_delay = 0;
-		}
-		else if ((((joy_curr & 0x4000) == 0x0000) && ((joy_prev & 0x4000) == 0x4000)) || key_value == 0x73) // down
-		{
-			timer = 0;
-			joy_delay = 0;
-		}
-		else if ((((joy_curr & 0x2000) == 0x0000) && ((joy_prev & 0x2000) == 0x2000)) || key_value == 0x61) // left
-		{
-			new_pos_x--;
-			joy_delay = 0;
-		}
-		else if ((((joy_curr & 0x1000) == 0x0000) && ((joy_prev & 0x1000) == 0x1000)) || key_value == 0x64) // right
-		{
-			new_pos_x++;
-			joy_delay = 0;
-		}
-		else if ((((joy_curr & 0x0800) == 0x0000) && ((joy_prev & 0x0800) == 0x0800)) || key_value == 0x71) // button 1
-		{
-			new_rot++;
-			if (new_rot == 4) new_rot = 0;
-			joy_delay = 0;
-		}
-		else if ((((joy_curr & 0x0400) == 0x0000) && ((joy_prev & 0x0400) == 0x0400)) || key_value == 0x65) // button 2
-		{
-			if (new_rot == 0) new_rot = 3;
-			else new_rot--;
-			joy_delay = 0;
-		}
-		
-		test = 0;
-		
-		for (volatile unsigned char i=0; i<4; i++)
-		{
-			for (volatile unsigned char j=0; j<4; j++)
-			{
-				if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)new_rot*16 + (unsigned int)piece*64] != ' ')
+				for (volatile unsigned char i=0; i<size_y; i++)
 				{
-					if (new_pos_x + j >= 0x80 || new_pos_x + j <= 0x03 || new_pos_x + j >= size_x + 4)
+					for (volatile unsigned char j=0; j<size_x; j++)
 					{
-						test = 1;
-						i = 5;
-						j = 5;
+						if (board[j + i * size_x + z * size_x * size_y] == '*') 
+						{
+							board[j + i * size_x + z * size_x * size_y] = ' ';
+						}
 					}
 				}
 			}
-		}
-		
-		for (volatile unsigned char i=0; i<4; i++)
-		{
-			for (volatile unsigned char j=0; j<4; j++)
+
+			new_pos_x[z] = pos_x[z];
+			new_rot[z] = rot[z];
+
+			timer[z]++;
+
+			if (timer[z] > 40 - speed[z]) // determines how fast it falls
 			{
-				if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)new_rot*16 + (unsigned int)piece*64] == '*')
+				timer[z] = 0;
+			}
+
+			joy_delay[z]++;
+
+			if (joy_delay[z] > 2) // determines button turbo speed
+			{
+				joy_delay[z] = 0;
+				joy_prev[z] = joy_prev[z] | 0xF0;
+			}
+
+			if ((((joy_curr[z] & 0x80) == 0x00) && ((joy_prev[z] & 0x80) == 0x80)) || (key_value == 0x77 && z == 0)) // up
+			{
+				timer[z] = 1; // not zero
+				joy_delay[z] = 0;
+			}
+			else if ((((joy_curr[z] & 0x40) == 0x00) && ((joy_prev[z] & 0x40) == 0x40)) || (key_value == 0x73 && z == 0)) // down
+			{
+				timer[z] = 0;
+				joy_delay[z] = 0;
+			}
+			else if ((((joy_curr[z] & 0x20) == 0x00) && ((joy_prev[z] & 0x20) == 0x20)) || (key_value == 0x61 && z == 0)) // left
+			{
+				new_pos_x[z]--;
+				joy_delay[z] = 0;
+			}
+			else if ((((joy_curr[z] & 0x10) == 0x00) && ((joy_prev[z] & 0x10) == 0x10)) || (key_value == 0x64 && z == 0)) // right
+			{
+				new_pos_x[z]++;
+				joy_delay[z] = 0;
+			}
+			else if ((((joy_curr[z] & 0x08) == 0x00) && ((joy_prev[z] & 0x08) == 0x08)) || (key_value == 0x71 && z == 0)) // button 1
+			{
+				if (game_over[z] != 0)
 				{
-					if (board[(new_pos_x + j - 4) + (pos_y + i - 4) * size_x] != ' ')
+					game_over[z] = 0;
+					
+					speed[z] = 0;
+					
+					lines[z] = 0;
+					
+					for (volatile unsigned char i=0; i<size_y; i++)
 					{
-						test = 1;
-						i = 5;
-						j = 5;
+						for (volatile unsigned char j=0; j<size_x; j++)
+						{
+							if (i != size_y - 1)
+							{
+								board[j + i * size_x + z * size_x * size_y] = ' '; // empty
+							}
+							else
+							{
+								board[j + i * size_x + z * size_x * size_y] = '_'; // permanent bottom
+							}
+						}
+					}
+				}
+				else
+				{  
+					new_rot[z]++;
+					if (new_rot[z] == 4) new_rot[z] = 0;
+					joy_delay[z] = 0;
+				}
+			}
+			else if ((((joy_curr[z] & 0x04) == 0x00) && ((joy_prev[z] & 0x04) == 0x04)) || (key_value == 0x65 && z == 0)) // button 2
+			{
+				if (game_over[z] != 0)
+				{
+					game_over[z] = 0;
+					
+					speed[z] = 0;
+					
+					lines[z] = 0;
+					
+					for (volatile unsigned char i=0; i<size_y; i++)
+					{
+						for (volatile unsigned char j=0; j<size_x; j++)
+						{
+							if (i != size_y - 1)
+							{
+								board[j + i * size_x + z * size_x * size_y] = ' '; // empty
+							}
+							else
+							{
+								board[j + i * size_x + z * size_x * size_y] = '_'; // permanent bottom
+							}
+						}
+					}
+				}
+				else
+				{
+					if (new_rot[z] == 0) new_rot[z] = 3;
+					else new_rot[z]--;
+					joy_delay[z] = 0;
+				}
+			}
+			
+			if (game_over[z] != 0) continue;
+
+			for (volatile unsigned char k=0; k<4; k++)
+			{
+				for (volatile unsigned char i=0; i<4; i++)
+				{
+					for (volatile unsigned char j=0; j<4; j++)
+					{
+						if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)new_rot[z]*16 + (unsigned int)piece[z]*64] != ' ')
+						{
+							if (new_pos_x[z] + j >= 0x80 || new_pos_x[z] + j <= 0x03)
+							{	
+								new_pos_x[z]++;
+								i = 5;
+								j = 5;
+							}
+							else if (new_pos_x[z] + j >= size_x + 4)
+							{
+								new_pos_x[z]--;
+								i = 5;
+								j = 5;
+							}
+						}
 					}
 				}
 			}
-		}
-		
-		if (test == 0)
-		{
-			pos_x = new_pos_x;
-			rot = new_rot;
-		}
-		
-		if (timer == 0)
-		{
-			pos_y++;
 			
 			test = 0;
-		
+
 			for (volatile unsigned char i=0; i<4; i++)
 			{
 				for (volatile unsigned char j=0; j<4; j++)
 				{
-					if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot*16 + (unsigned int)piece*64] == '*')
+					if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)new_rot[z]*16 + (unsigned int)piece[z]*64] == '*')
 					{
-						if (board[(pos_x + j - 4) + (pos_y + i - 4) * size_x] != ' ')
+						if (board[(new_pos_x[z] + j - 4) + (pos_y[z] + i - 4) * size_x + z * size_x * size_y] != ' ')
 						{
 							test = 1;
 							i = 5;
@@ -1165,71 +1407,152 @@ void main(void)
 					}
 				}
 			}
-			
-			if (test == 1)
+
+			if (test == 0)
 			{
-				pos_y--;
-				
+				pos_x[z] = new_pos_x[z];
+				rot[z] = new_rot[z];
+			}
+
+			if (timer[z] == 0)
+			{
+				pos_y[z]++;
+
+				test = 0;
+
 				for (volatile unsigned char i=0; i<4; i++)
 				{
 					for (volatile unsigned char j=0; j<4; j++)
 					{
-						if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot*16 + (unsigned int)piece*64] == '*')
+						if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot[z]*16 + (unsigned int)piece[z]*64] == '*')
 						{
-							board[(pos_x + j - 4) + (pos_y + i - 4) * size_x] = '#';
+							if (board[(pos_x[z] + j - 4) + (pos_y[z] + i - 4) * size_x + z * size_x * size_y] != ' ')
+							{
+								test = 1;
+								i = 5;
+								j = 5;
+							}
 						}
 					}
 				}
-				
-				if (pos_y == 4)
-				{
-					// game over
-					display(0x0A, 0x01, '!');
-					
-					while (1) { }
-				}
-				
-				for (volatile unsigned char i=size_y-1; i>=1; i--)
-				{
-					test = 0;
-					
-					for (volatile unsigned char j=0; j<size_x; j++)
+
+				if (test == 1)
+				{	
+					pos_y[z]--;
+
+					for (volatile unsigned char i=0; i<4; i++)
 					{
-						if (board[j + (i-1) * size_x] == ' ') test = 1;
+						for (volatile unsigned char j=0; j<4; j++)
+						{
+							if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot[z]*16 + (unsigned int)piece[z]*64] == '*')
+							{
+								board[(pos_x[z] + j - 4) + (pos_y[z] + i - 4) * size_x + z * size_x * size_y] = '#';
+							}
+						}
 					}
 					
-					if (test == 0)
+					sound(0xE000, 0x007F);
+
+					if (pos_y[z] == 4)
 					{
-						for (volatile unsigned char j=i; j>=2; j--)
+						game_over[z] = 1;
+						
+						sound(0xD000, 0x01FF);
+					}
+					else
+					{
+						count = 0;
+
+						for (volatile unsigned char i=size_y-1; i>=1; i--)
 						{
-							for (volatile unsigned char k=0; k<size_x; k++)
+							test = 0;
+
+							for (volatile unsigned char j=0; j<size_x; j++)
 							{
-								board[k + (j-1) * size_x] = board[k + (j-2) * size_x];
+								if (board[j + (i-1) * size_x + z * size_x * size_y] == ' ') test = 1;
+							}
+
+							if (test == 0)
+							{
+								for (volatile unsigned char j=i; j>=2; j--)
+								{
+									for (volatile unsigned char k=0; k<size_x; k++)
+									{
+										board[k + (j-1) * size_x + z * size_x * size_y] = 
+											board[k + (j-2) * size_x + z * size_x * size_y];
+									}
+								}
+
+								i++; // test that row again
+
+								lines[z]++;
+								count++;
+								
+								sound(0xF000, 0x01FF);
+							}
+						}
+
+						if (game_over[1-z] != 0) count = 0;
+
+						if (count >= 1) count--;
+
+						for (volatile unsigned char i=0; i<count; i++)
+						{
+							for (volatile unsigned char j=0; j<size_y-1; j++)
+							{
+								for (volatile unsigned char k=0; k<size_x; k++)
+								{
+									if (j < size_y-2)
+									{
+										board[k + j * size_x + (1-z) * size_x * size_y] = 
+											board[k + (j+1) * size_x + (1-z) * size_x * size_y];
+									}
+									else
+									{
+										if (k == seed % 10) board[k + j * size_x + (1-z) * size_x * size_y] = ' ';
+										else board[k + j * size_x + (1-z) * size_x * size_y] = '#';
+									}
+								}
 							}
 						}
 						
-						i++; // test that row again
-						
-						lines++;
+						pos_y[1-z] -= count;
+						if (pos_y[1-z] < 4) pos_y[1-z] = 4;
+					
+						speed[z] = (unsigned char)(lines[z] / 10);
+						if (speed[z] > 37) speed[z] = 37; // max
+
+						pos_x[z] = 7; // start at 4
+						pos_y[z] = 4; // start at 4
+						rot[z] = 0;
+						piece[z] = new_piece[z];
+
+						bag_pos[z]++;
+
+						if (bag_pos[z] == 7)
+						{
+							bag_pos[z] = 0;
+
+							for (volatile unsigned char i=0; i<7; i++)
+							{
+								bag[(i + ((seed & 0xF0) >> 4)) % 7 + z * 7] = random[i + (seed & 0x0F) * 7];
+							}
+						}
+
+						new_piece[z] = bag[bag_pos[z] + z * 7];
 					}
 				}
-				
-				pos_x = 7; // start at 4
-				pos_y = 4; // start at 4
-				rot = 0;
-				piece++;
-				if (piece == 7) piece = 0;
 			}
-		}
-		
-		for (volatile unsigned char i=0; i<4; i++)
-		{
-			for (volatile unsigned char j=0; j<4; j++)
+
+			for (volatile unsigned char i=0; i<4; i++)
 			{
-				if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot*16 + (unsigned int)piece*64] == '*')
+				for (volatile unsigned char j=0; j<4; j++)
 				{
-					board[(pos_x + j - 4) + (pos_y + i - 4) * size_x] = 
-						map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot*16 + (unsigned int)piece*64];
+					if (map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot[z]*16 + (unsigned int)piece[z]*64] == '*')
+					{
+						board[(pos_x[z] + j - 4) + (pos_y[z] + i - 4) * size_x + z * size_x * size_y] = 
+							map[(unsigned int)j + (unsigned int)i*4 + (unsigned int)rot[z]*16 + (unsigned int)piece[z]*64];
+					}
 				}
 			}
 		}
@@ -1238,21 +1561,113 @@ void main(void)
 		{
 			for (volatile unsigned char j=0; j<size_x; j++)
 			{
-				display(j, i, board[j + i * size_x]);
+				switch (board[j + i * size_x])
+				{
+					case ' ':
+					{
+						solid(j + 0x08, i + 0x02, 0x00); // black
+						break;
+					}
+					case '*':
+					{
+						if (piece[0] == 0) block(j + 0x08, i + 0x02, 0x66); // cyan
+						else if (piece[0] == 1) block(j + 0x08, i + 0x02, 0x33); // blue
+						else if (piece[0] == 2) block(j + 0x08, i + 0x02, 0xEE); // grey
+						else if (piece[0] == 3) block(j + 0x08, i + 0x02, 0xCC); // yellow
+						else if (piece[0] == 4) block(j + 0x08, i + 0x02, 0x55); // green
+						else if (piece[0] == 5) block(j + 0x08, i + 0x02, 0xAA); // magenta
+						else if (piece[0] == 6) block(j + 0x08, i + 0x02, 0x99); // red
+						break;
+					}
+					case '#':
+					{
+						block(j + 0x08, i + 0x02, 0x11); // dark grey
+						break;
+					}
+				}
+				
+				//display(j + 0x08, i, board[j + i * size_x + 0]);
 			}
 		}
 		
-		hex(0x0A, 0x00, (unsigned char)((lines & 0xFF00) >> 8));
-		hex(0x0C, 0x00, (unsigned char)(lines & 0x00FF));
+		decimal(0x08, 0x00, lines[0]);
 		
-		hex(0x2E, 0x00, (unsigned char)((joy_curr & 0xFF00) >> 8));
-		hex(0x30, 0x00, (unsigned char)(joy_curr & 0x00FF));
-
-		if (key_value != 0x00)
+		if (new_piece[0] == 0) display(0x11, 0x00, 'I');
+		else if (new_piece[0] == 1) display(0x11, 0x00, 'J');
+		else if (new_piece[0] == 2) display(0x11, 0x00, 'L');
+		else if (new_piece[0] == 3) display(0x11, 0x00, 'O');
+		else if (new_piece[0] == 4) display(0x11, 0x00, 'S');
+		else if (new_piece[0] == 5) display(0x11, 0x00, 'T');
+		else if (new_piece[0] == 6) display(0x11, 0x00, 'Z');
+		
+		for (volatile unsigned char i=0; i<size_y-1; i++)
 		{
-			hex(0x2C, 0x00, key_value);
+			for (volatile unsigned char j=0; j<size_x; j++)
+			{
+				switch (board[j + i * size_x + size_x * size_y])
+				{
+					case ' ':
+					{
+						solid(j + 0x20, i + 0x02, 0x00); // black
+						break;
+					}
+					case '*':
+					{
+						if (piece[1] == 0) block(j + 0x20, i + 0x02, 0x66); // cyan
+						else if (piece[1] == 1) block(j + 0x20, i + 0x02, 0x33); // blue
+						else if (piece[1] == 2) block(j + 0x20, i + 0x02, 0xEE); // grey
+						else if (piece[1] == 3) block(j + 0x20, i + 0x02, 0xCC); // yellow
+						else if (piece[1] == 4) block(j + 0x20, i + 0x02, 0x55); // green
+						else if (piece[1] == 5) block(j + 0x20, i + 0x02, 0xAA); // magenta
+						else if (piece[1] == 6) block(j + 0x20, i + 0x02, 0x99); // red
+						break;
+					}
+					case '#':
+					{
+						block(j + 0x20, i + 0x02, 0x11); // dark grey
+						break;
+					}
+				}
+				
+				//display(j + 0x20, i, board[j + i * size_x + size_x * size_y]);
+			}
+		}
+		
+		decimal(0x20, 0x00, lines[1]);
+		
+		if (new_piece[1] == 0) display(0x29, 0x00, 'I');
+		else if (new_piece[1] == 1) display(0x29, 0x00, 'J');
+		else if (new_piece[1] == 2) display(0x29, 0x00, 'L');
+		else if (new_piece[1] == 3) display(0x29, 0x00, 'O');
+		else if (new_piece[1] == 4) display(0x29, 0x00, 'S');
+		else if (new_piece[1] == 5) display(0x29, 0x00, 'T');
+		else if (new_piece[1] == 6) display(0x29, 0x00, 'Z');
+		
+		//hex(0x2E, 0x00, (unsigned char)((joy_curr & 0xFF00) >> 8));
+		//hex(0x30, 0x00, (unsigned char)(joy_curr & 0x00FF));
+
+		//if (key_value != 0x00)
+		//{
+		//	hex(0x2C, 0x00, key_value);
+		//}
+		
+		if (game_over[0] != 0x00)
+		{
+			string(0x07, 0x1F, "Press Button\\");
+		}
+		else
+		{
+			string(0x07, 0x1F, "            \\");
+		}
+		
+		if (game_over[1] != 0x00)
+		{
+			string(0x1F, 0x1F, "Press Button\\");
+		}
+		else
+		{
+			string(0x1F, 0x1F, "            \\");
 		}
 	}
-
 }
 
