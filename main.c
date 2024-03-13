@@ -1242,7 +1242,7 @@ void scratch(void)
 			{
 				for (volatile unsigned char i=0x00; i<0x20; i++)
 				{
-					for (volatile unsigned char j=0x00; j<0x30; j++)
+					for (volatile unsigned char j=0x00; j<0x32; j++)
 					{
 						character(j, i, ' ');
 					}
@@ -1263,13 +1263,13 @@ void scratch(void)
 				{
 					for (volatile unsigned char i=0x01; i<0x20; i++)
 					{
-						for (volatile unsigned char j=0x00; j<0x30; j++)
+						for (volatile unsigned char j=0x00; j<0x32; j++)
 						{
 							scroll(j, i);
 						}
 					}
 					
-					for (volatile unsigned char i=0x00; i<0x30; i++)
+					for (volatile unsigned char i=0x00; i<0x32; i++)
 					{
 						character(i, 0x1F, ' ');
 					}
