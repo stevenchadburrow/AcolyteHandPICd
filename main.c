@@ -75,6 +75,8 @@ unsigned char keycurr = 0x00;
 unsigned char keylast = 0x00;
 unsigned char keyextended = 0x00;
 unsigned char keyrelease = 0x00;
+unsigned char keyshift = 0x00;
+unsigned char keycapslock = 0x00;
 unsigned char keycounter = 0x00;
 unsigned char keyreadpos = 0x00;
 unsigned char keywritepos = 0x00;
@@ -278,6 +280,26 @@ unsigned char readkey(void)
 		{
 			keyextended = 0x01;
 		}
+		else if (keyarray[keyreadpos] == 0x12 || keyarray[keyreadpos] == 0x59) // shift
+		{
+			if (keyrelease == 0x01)
+			{
+				keyshift = 0x00;
+				keyrelease = 0x00;
+			}
+			else
+			{
+				keyshift = 0x01;
+			}
+		}
+		else if (keyarray[keyreadpos] == 0x58) // capslock
+		{
+			if (keyrelease == 0x01)
+			{
+				keycapslock = 0x01 - keycapslock;
+				keyrelease = 0x00;
+			}
+		}
 		else
 		{
 			if (keyrelease == 0x01)
@@ -287,14 +309,8 @@ unsigned char readkey(void)
 			}
 			else
 			{
-				if (keyextended == 0x01)
-				{
-					value = conversion[keyarray[keyreadpos] + 0x80];
-				}
-				else
-				{
-					value = conversion[keyarray[keyreadpos]];
-				}
+				value = conversion[(unsigned char)(keyarray[keyreadpos] + 
+					0x80 * keyextended + 0x80 * keyshift + 0x80 * keycapslock)];
 				
 				keyextended = 0x00;
 			}
@@ -714,7 +730,7 @@ const unsigned char bitmap[2048] = {
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 };
 
-void display(unsigned char x, unsigned char y, unsigned char value)
+void character(unsigned char x, unsigned char y, unsigned char value)
 {
 	volatile unsigned int pos = (unsigned int)(value) * 16;
 	volatile unsigned char low = x * 2;
@@ -749,17 +765,127 @@ void display(unsigned char x, unsigned char y, unsigned char value)
 	}
 };
 
+void invert(unsigned char x, unsigned char y)
+{
+	volatile unsigned char low = x * 2;
+	volatile unsigned char high = y * 4 - 1; // need to change high addr to make it work right??
+	volatile unsigned char i = 0x00;
+	volatile unsigned char pixels;
+	
+	highaddr(high);
+	high++;
+	lowaddr(low);
+	low++;
+  
+	for (i=0; i<4; i++)
+	{
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr(high);
+		lowaddr(low);
+		writedata((pixels ^ 0xFF));
+		lowaddr(low);
+		low += 0x7F;
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr(high);
+		lowaddr(low);
+		writedata((pixels ^ 0xFF));
+		lowaddr(low);
+		low++;
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr(high);
+		lowaddr(low);
+		writedata((pixels ^ 0xFF));
+		lowaddr(low);
+		low = x * 2;
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr(high);
+		lowaddr(low);
+		writedata((pixels ^ 0xFF));
+		highaddr(high);
+		high++;
+		lowaddr(low);
+		low++;
+	}
+};
+
+void scroll(unsigned char x, unsigned char y)
+{
+	volatile unsigned char low = x * 2;
+	volatile unsigned char high = y * 4 - 1; // need to change high addr to make it work right??
+	volatile unsigned char i = 0x00;
+	volatile unsigned char pixels;
+	
+	highaddr(high);
+	high++;
+	lowaddr(low);
+	low++;
+  
+	for (i=0; i<4; i++)
+	{
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr((unsigned char)(high - 0x04));
+		lowaddr(low);
+		writedata(pixels);
+		lowaddr(low);
+		low += 0x7F;
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr((unsigned char)(high - 0x04));
+		lowaddr(low);
+		writedata(pixels);
+		lowaddr(low);
+		low++;
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr((unsigned char)(high - 0x04));
+		lowaddr(low);
+		writedata(pixels);
+		lowaddr(low);
+		low = x * 2;
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low);
+		pixels = readdata(); // need to read twice to make it work right??
+		highaddr((unsigned char)(high - 0x04));
+		lowaddr(low);
+		writedata(pixels);
+		highaddr(high);
+		high++;
+		lowaddr(low);
+		low++;
+	}
+};
+
 void hex(unsigned char x, unsigned char y, unsigned char value)
 {
 	volatile unsigned char temp = (unsigned char)((value & 0xF0) >> 4);
 		
-	if (temp < 0x0A) display(x, y, (unsigned char)(temp + '0'));
-	else display(x, y, (unsigned char)(temp - 0x0A + 'A'));
+	if (temp < 0x0A) character(x, y, (unsigned char)(temp + '0'));
+	else character(x, y, (unsigned char)(temp - 0x0A + 'A'));
 		
 	temp = (unsigned char)(value & 0x0F);
 		
-	if (temp < 0x0A) display(x + 0x01, y, (unsigned char)(temp + '0'));
-	else display(x + 0x01, y, (unsigned char)(temp - 0x0A + 'A'));
+	if (temp < 0x0A) character(x + 0x01, y, (unsigned char)(temp + '0'));
+	else character(x + 0x01, y, (unsigned char)(temp - 0x0A + 'A'));
 };
 
 void decimal(unsigned char x, unsigned char y, unsigned int value)
@@ -770,23 +896,23 @@ void decimal(unsigned char x, unsigned char y, unsigned int value)
 	next = value;
 	
 	temp = next / 10000;
-	display(x, y, (unsigned char)(temp + '0'));
+	character(x, y, (unsigned char)(temp + '0'));
 	next = next - 10000 * temp;
 	
 	temp = next / 1000;
-	display(x + 0x01, y, (unsigned char)(temp + '0'));
+	character(x + 0x01, y, (unsigned char)(temp + '0'));
 	next = next - 1000 * temp;
 	
 	temp = next / 100;
-	display(x + 0x02, y, (unsigned char)(temp + '0'));
+	character(x + 0x02, y, (unsigned char)(temp + '0'));
 	next = next - 100 * temp;
 	
 	temp = next / 10;
-	display(x + 0x03, y, (unsigned char)(temp + '0'));
+	character(x + 0x03, y, (unsigned char)(temp + '0'));
 	next = next - 10 * temp;
 	
 	temp = next;
-	display(x + 0x04, y, (unsigned char)(temp + '0'));
+	character(x + 0x04, y, (unsigned char)(temp + '0'));
 };
 
 /******************************************************************************/
@@ -1032,7 +1158,7 @@ void string(unsigned char x, unsigned char y, char *value)
 	
 	while (value[pos] != '\\')
 	{
-		display(x + pos, y, value[pos]);
+		character(x + pos, y, value[pos]);
 		
 		pos++;
 	}
@@ -1069,6 +1195,213 @@ volatile unsigned char joy_prev[2];
 volatile unsigned int joy_delay[2];
 
 volatile unsigned char game_over[2];
+
+void scratch(void)
+{
+	volatile unsigned char cursor_x = 0x00;
+	volatile unsigned char cursor_y = 0x00;
+  
+	for (volatile unsigned char i=0; i<128; i++)
+	{
+		highaddr((unsigned char)(i));
+		
+		for (volatile unsigned char j=0; j<100; j++)
+		{
+			lowaddr((unsigned char)(j));
+			writedata(0x00);
+		}
+		
+		for (volatile unsigned char j=100; j<128; j++)
+		{
+			lowaddr((unsigned char)(j));
+			writedata(0xB7); // 0xB7
+		}
+		
+		for (volatile unsigned char j=128; j<228; j++)
+		{
+			lowaddr((unsigned char)(j));
+			writedata(0x00);
+		}
+		
+		for (volatile unsigned char j=228; j<255; j++)
+		{
+			lowaddr((unsigned char)(j));
+			writedata(0xB7); // 0xB7
+		}
+	}
+	
+	invert(cursor_x, cursor_y);
+			
+	while (1)
+	{	
+		key_value = readkey();
+				
+		if (key_value != 0x00)
+		{
+			if (key_value == 0x1B) // escape (to clear)
+			{
+				for (volatile unsigned char i=0x00; i<0x20; i++)
+				{
+					for (volatile unsigned char j=0x00; j<0x30; j++)
+					{
+						character(j, i, ' ');
+					}
+				}
+				
+				cursor_x = 0x00;
+				cursor_y = 0x00;
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x0D) // return
+			{
+				invert(cursor_x, cursor_y);
+				
+				cursor_x = 0x00;
+				
+				if (cursor_y >= 0x1F) // scroll
+				{
+					for (volatile unsigned char i=0x01; i<0x20; i++)
+					{
+						for (volatile unsigned char j=0x00; j<0x30; j++)
+						{
+							scroll(j, i);
+						}
+					}
+					
+					for (volatile unsigned char i=0x00; i<0x30; i++)
+					{
+						character(i, 0x1F, ' ');
+					}
+					
+					cursor_y = 0x1F;
+				}
+				else
+				{
+					cursor_y++;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x08) // backspace
+			{
+				invert(cursor_x, cursor_y);
+							
+				if (cursor_x > 0x00)
+				{
+					cursor_x--;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x09) // tab
+			{
+				invert(cursor_x, cursor_y);
+				
+				if (cursor_x < 0x31)
+				{
+					cursor_x++;
+				}
+						
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x11) // up arrow
+			{
+				invert(cursor_x, cursor_y);
+				
+				if (cursor_y > 0x00)
+				{
+					cursor_y--;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x12) // down arrow
+			{
+				invert(cursor_x, cursor_y);
+				
+				if (cursor_y < 0x1F)
+				{
+					cursor_y++;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x13) // left arrow
+			{
+				invert(cursor_x, cursor_y);
+				
+				if (cursor_x > 0x00)
+				{
+					cursor_x--;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x14) // right arrow
+			{
+				invert(cursor_x, cursor_y);
+				
+				if (cursor_x < 0x31)
+				{
+					cursor_x++;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x01) // page up
+			{
+				invert(cursor_x, cursor_y);
+				
+				cursor_y = 0x00;
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x02) // home
+			{
+				invert(cursor_x, cursor_y);
+				
+				cursor_x = 0x00;
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x03) // end
+			{
+				invert(cursor_x, cursor_y);
+				
+				cursor_x = 0x31;
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x04) // page down
+			{
+				invert(cursor_x, cursor_y);
+				
+				cursor_y = 0x1F;
+				
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x7F) // delete
+			{
+				invert(cursor_x, cursor_y);
+				character(cursor_x, cursor_y, ' ');
+				invert(cursor_x, cursor_y);
+			}
+			else if (key_value >= 0x20 && key_value < 0x7F) // letters
+			{
+				character(cursor_x, cursor_y, key_value);
+				
+				if (cursor_x < 0x31)
+				{
+					cursor_x++;
+				}
+				
+				invert(cursor_x, cursor_y);
+			}
+			
+		}
+	}
+};
 
 void main(void)
 {
@@ -1230,7 +1563,12 @@ void main(void)
 	
 	while (1)
 	{	
-		seed++; // random seed
+		key_value = readkey();
+		
+		if (key_value == 0x1B) // escape
+		{
+			scratch();
+		}
 		
 		unsigned volatile int joy_both = readjoy();
 		
@@ -1240,7 +1578,7 @@ void main(void)
 		joy_prev[1] = joy_curr[1];
 		joy_curr[1] = (unsigned char)((joy_both & 0x00FF));
 		
-		key_value = readkey();
+		seed++; // random seed
 		
 		__delay_ms(15); // determines delay between calculations
 		
@@ -1278,27 +1616,32 @@ void main(void)
 				joy_prev[z] = joy_prev[z] | 0xF0;
 			}
 
-			if ((((joy_curr[z] & 0x80) == 0x00) && ((joy_prev[z] & 0x80) == 0x80)) || (key_value == 0x77 && z == 0)) // up
+			if ((((joy_curr[z] & 0x80) == 0x00) && ((joy_prev[z] & 0x80) == 0x80)) || 
+				(key_value == 0x77 && z == 0) || (key_value == 0x69 && z == 1)) // up
 			{
 				timer[z] = 1; // not zero
 				joy_delay[z] = 0;
 			}
-			else if ((((joy_curr[z] & 0x40) == 0x00) && ((joy_prev[z] & 0x40) == 0x40)) || (key_value == 0x73 && z == 0)) // down
+			else if ((((joy_curr[z] & 0x40) == 0x00) && ((joy_prev[z] & 0x40) == 0x40)) || 
+				(key_value == 0x73 && z == 0) || (key_value == 0x6B && z == 1)) // down
 			{
 				timer[z] = 0;
 				joy_delay[z] = 0;
 			}
-			else if ((((joy_curr[z] & 0x20) == 0x00) && ((joy_prev[z] & 0x20) == 0x20)) || (key_value == 0x61 && z == 0)) // left
+			else if ((((joy_curr[z] & 0x20) == 0x00) && ((joy_prev[z] & 0x20) == 0x20)) || 
+				(key_value == 0x61 && z == 0) || (key_value == 0x6A && z == 1)) // left
 			{
 				new_pos_x[z]--;
 				joy_delay[z] = 0;
 			}
-			else if ((((joy_curr[z] & 0x10) == 0x00) && ((joy_prev[z] & 0x10) == 0x10)) || (key_value == 0x64 && z == 0)) // right
+			else if ((((joy_curr[z] & 0x10) == 0x00) && ((joy_prev[z] & 0x10) == 0x10)) || 
+				(key_value == 0x64 && z == 0) || (key_value == 0x6C && z == 1)) // right
 			{
 				new_pos_x[z]++;
 				joy_delay[z] = 0;
 			}
-			else if ((((joy_curr[z] & 0x08) == 0x00) && ((joy_prev[z] & 0x08) == 0x08)) || (key_value == 0x71 && z == 0)) // button 1
+			else if ((((joy_curr[z] & 0x08) == 0x00) && ((joy_prev[z] & 0x08) == 0x08)) || 
+				(key_value == 0x71 && z == 0) || (key_value == 0x75 && z == 1)) // button 1
 			{
 				if (game_over[z] != 0)
 				{
@@ -1330,7 +1673,8 @@ void main(void)
 					joy_delay[z] = 0;
 				}
 			}
-			else if ((((joy_curr[z] & 0x04) == 0x00) && ((joy_prev[z] & 0x04) == 0x04)) || (key_value == 0x65 && z == 0)) // button 2
+			else if ((((joy_curr[z] & 0x04) == 0x00) && ((joy_prev[z] & 0x04) == 0x04)) || 
+				(key_value == 0x65 && z == 0) || (key_value == 0x6F && z == 1)) // button 2
 			{
 				if (game_over[z] != 0)
 				{
@@ -1586,19 +1930,19 @@ void main(void)
 					}
 				}
 				
-				//display(j + 0x08, i, board[j + i * size_x + 0]);
+				//character(j + 0x08, i, board[j + i * size_x + 0]);
 			}
 		}
 		
 		decimal(0x08, 0x00, lines[0]);
 		
-		if (new_piece[0] == 0) display(0x11, 0x00, 'I');
-		else if (new_piece[0] == 1) display(0x11, 0x00, 'J');
-		else if (new_piece[0] == 2) display(0x11, 0x00, 'L');
-		else if (new_piece[0] == 3) display(0x11, 0x00, 'O');
-		else if (new_piece[0] == 4) display(0x11, 0x00, 'S');
-		else if (new_piece[0] == 5) display(0x11, 0x00, 'T');
-		else if (new_piece[0] == 6) display(0x11, 0x00, 'Z');
+		if (new_piece[0] == 0) character(0x11, 0x00, 'I');
+		else if (new_piece[0] == 1) character(0x11, 0x00, 'J');
+		else if (new_piece[0] == 2) character(0x11, 0x00, 'L');
+		else if (new_piece[0] == 3) character(0x11, 0x00, 'O');
+		else if (new_piece[0] == 4) character(0x11, 0x00, 'S');
+		else if (new_piece[0] == 5) character(0x11, 0x00, 'T');
+		else if (new_piece[0] == 6) character(0x11, 0x00, 'Z');
 		
 		for (volatile unsigned char i=0; i<size_y-1; i++)
 		{
@@ -1629,19 +1973,19 @@ void main(void)
 					}
 				}
 				
-				//display(j + 0x20, i, board[j + i * size_x + size_x * size_y]);
+				//character(j + 0x20, i, board[j + i * size_x + size_x * size_y]);
 			}
 		}
 		
 		decimal(0x20, 0x00, lines[1]);
 		
-		if (new_piece[1] == 0) display(0x29, 0x00, 'I');
-		else if (new_piece[1] == 1) display(0x29, 0x00, 'J');
-		else if (new_piece[1] == 2) display(0x29, 0x00, 'L');
-		else if (new_piece[1] == 3) display(0x29, 0x00, 'O');
-		else if (new_piece[1] == 4) display(0x29, 0x00, 'S');
-		else if (new_piece[1] == 5) display(0x29, 0x00, 'T');
-		else if (new_piece[1] == 6) display(0x29, 0x00, 'Z');
+		if (new_piece[1] == 0) character(0x29, 0x00, 'I');
+		else if (new_piece[1] == 1) character(0x29, 0x00, 'J');
+		else if (new_piece[1] == 2) character(0x29, 0x00, 'L');
+		else if (new_piece[1] == 3) character(0x29, 0x00, 'O');
+		else if (new_piece[1] == 4) character(0x29, 0x00, 'S');
+		else if (new_piece[1] == 5) character(0x29, 0x00, 'T');
+		else if (new_piece[1] == 6) character(0x29, 0x00, 'Z');
 		
 		//hex(0x2E, 0x00, (unsigned char)((joy_curr & 0xFF00) >> 8));
 		//hex(0x30, 0x00, (unsigned char)(joy_curr & 0x00FF));
