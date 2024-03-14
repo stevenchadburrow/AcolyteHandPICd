@@ -329,20 +329,11 @@ unsigned int readjoy(void) // many signals are done twice but only for safety
 	volatile unsigned char joy_b = 0xFF;
 	volatile unsigned char i;
 	volatile unsigned int both;
-	
-	// only changes joy_a at this point!!!
   
 	TRISB = 0xF0;
-	TRISB = 0xF0;
-	//TRISB = 0xE0;
-	//TRISB = 0xE0;
-	LATB = 0x03;
 	LATB = 0x03;
 	LATB = 0x07; // might interfere with TX/RX???
-	LATB = 0x07;
 	LATB = 0x03;
-	LATB = 0x03;
-	LATB = 0x0B;
 	LATB = 0x0B;
 	
 	for (i=0x00; i<0x06; i++)
@@ -350,8 +341,6 @@ unsigned int readjoy(void) // many signals are done twice but only for safety
 		joy_a = (unsigned char)(joy_a << 1);
 		if (RB5 != 0) joy_a = joy_a | 0x01;
 		LATB = 0x0F;
-		LATB = 0x0F;
-		LATB = 0x0B;
 		LATB = 0x0B;
 	}
 	
@@ -360,29 +349,18 @@ unsigned int readjoy(void) // many signals are done twice but only for safety
 		joy_b = (unsigned char)(joy_b << 1);
 		if (RB5 != 0) joy_b = joy_b | 0x01;
 		LATB = 0x0F;
-		LATB = 0x0F;
-		LATB = 0x0B;
 		LATB = 0x0B;
 	}
 
 	TRISB = 0xE0;
-	TRISB = 0xE0;
-	//TRISB = 0xF0;
-	//TRISB = 0xF0;
-	LATB = 0x03;
 	LATB = 0x03;
 	LATB = 0x07;
-	LATB = 0x07;
 	LATB = 0x03;
-	LATB = 0x03;
-	LATB = 0x0B;
 	LATB = 0x0B;
 	
 	for (i=0x00; i<0x04; i++)
 	{
 		LATB = 0x0F;
-		LATB = 0x0F;
-		LATB = 0x0B;
 		LATB = 0x0B;
 	}
 	
@@ -391,16 +369,12 @@ unsigned int readjoy(void) // many signals are done twice but only for safety
 		joy_a = (unsigned char)(joy_a << 1);
 		if (RB5 != 0) joy_a = joy_a | 0x01;
 		LATB = 0x0F;
-		LATB = 0x0F;
-		LATB = 0x0B;
 		LATB = 0x0B;
 	}
 	
 	for (i=0x00; i<0x04; i++)
 	{
 		LATB = 0x0F;
-		LATB = 0x0F;
-		LATB = 0x0B;
 		LATB = 0x0B;
 	}
 	
@@ -409,16 +383,10 @@ unsigned int readjoy(void) // many signals are done twice but only for safety
 		joy_b = (unsigned char)(joy_b << 1);
 		if (RB5 != 0) joy_b = joy_b | 0x01;
 		LATB = 0x0F;
-		LATB = 0x0F;
-		LATB = 0x0B;
 		LATB = 0x0B;
 	}
 	
 	TRISB = 0xF0;
-	TRISB = 0xF0;
-	//TRISB = 0xE0;
-	//TRISB = 0xE0;
-	LATB = 0x03;
 	LATB = 0x03;
 	
 	both = ((unsigned int)(joy_a) << 8) + (unsigned int)(joy_b);
@@ -768,110 +736,84 @@ void character(unsigned char x, unsigned char y, unsigned char value)
 void invert(unsigned char x, unsigned char y)
 {
 	volatile unsigned char low = x * 2;
-	volatile unsigned char high = y * 4 - 1; // need to change high addr to make it work right??
+	volatile unsigned char high = y * 4; // need to change high addr to make it work right??
 	volatile unsigned char i = 0x00;
 	volatile unsigned char pixels;
-	
-	highaddr(high);
-	high++;
-	lowaddr(low);
-	low++;
   
 	for (i=0; i<4; i++)
 	{
+		highaddr(high);
+		lowaddr(low);
 		pixels = readdata();
 		highaddr(high);
 		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
+		writedata((pixels ^ 0xFF));
+		highaddr(high);
+		lowaddr(low+0x01);
+		pixels = readdata();
+		highaddr(high);
+		lowaddr(low+0x01);
+		writedata((pixels ^ 0xFF));
+		
+		low += 0x80;
+		
 		highaddr(high);
 		lowaddr(low);
-		writedata((pixels ^ 0xFF));
-		lowaddr(low);
-		low += 0x7F;
 		pixels = readdata();
 		highaddr(high);
 		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
-		highaddr(high);
-		lowaddr(low);
 		writedata((pixels ^ 0xFF));
-		lowaddr(low);
-		low++;
+		highaddr(high);
+		lowaddr(low+0x01);
 		pixels = readdata();
 		highaddr(high);
-		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
-		highaddr(high);
-		lowaddr(low);
+		lowaddr(low+0x01);
 		writedata((pixels ^ 0xFF));
-		lowaddr(low);
+		
 		low = x * 2;
-		pixels = readdata();
-		highaddr(high);
-		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
-		highaddr(high);
-		lowaddr(low);
-		writedata((pixels ^ 0xFF));
-		highaddr(high);
 		high++;
-		lowaddr(low);
-		low++;
 	}
 };
 
 void scroll(unsigned char x, unsigned char y)
 {
 	volatile unsigned char low = x * 2;
-	volatile unsigned char high = y * 4 - 1; // need to change high addr to make it work right??
+	volatile unsigned char high = y * 4; // need to change high addr to make it work right??
 	volatile unsigned char i = 0x00;
 	volatile unsigned char pixels;
-	
-	highaddr(high);
-	high++;
-	lowaddr(low);
-	low++;
   
 	for (i=0; i<4; i++)
 	{
-		pixels = readdata();
 		highaddr(high);
 		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
+		pixels = readdata();
 		highaddr((unsigned char)(high - 0x04));
 		lowaddr(low);
 		writedata(pixels);
-		lowaddr(low);
-		low += 0x7F;
+		highaddr(high);
+		lowaddr(low+0x01);
 		pixels = readdata();
+		highaddr((unsigned char)(high - 0x04));
+		lowaddr(low+0x01);
+		writedata(pixels);
+		
+		low += 0x80;
+		
 		highaddr(high);
 		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
+		pixels = readdata();
 		highaddr((unsigned char)(high - 0x04));
 		lowaddr(low);
 		writedata(pixels);
-		lowaddr(low);
-		low++;
-		pixels = readdata();
 		highaddr(high);
-		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
+		lowaddr(low+0x01);
+		pixels = readdata();
 		highaddr((unsigned char)(high - 0x04));
-		lowaddr(low);
+		lowaddr(low+0x01);
 		writedata(pixels);
-		lowaddr(low);
+		
 		low = x * 2;
-		pixels = readdata();
-		highaddr(high);
-		lowaddr(low);
-		pixels = readdata(); // need to read twice to make it work right??
-		highaddr((unsigned char)(high - 0x04));
-		lowaddr(low);
-		writedata(pixels);
-		highaddr(high);
 		high++;
-		lowaddr(low);
-		low++;
 	}
 };
 
@@ -1386,6 +1328,10 @@ void scratch(void)
 				invert(cursor_x, cursor_y);
 				character(cursor_x, cursor_y, ' ');
 				invert(cursor_x, cursor_y);
+			}
+			else if (key_value == 0x1A) // insert
+			{
+				// just for testing purposes
 			}
 			else if (key_value >= 0x20 && key_value < 0x7F) // letters
 			{
