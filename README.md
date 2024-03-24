@@ -10,4 +10,4 @@ This is a PIC-only version of the Acolyte computer.  The main two chips used are
 
 The main reason for leaving the 6502 / 65816 microprocessor is that the PIC allows you to program in C.  Although I have become pretty good at programming in 6502 assembly, I prefer using C because it is 'my native language'.  The goal for this project is to make a fairly cheap, stand-alone computer that will play (multiplayer) video games, like two-player Tetris.  
 
-I am already thinking of additional upgrades though!  I recently added an audio breakout board, so it is now capable of making simple sound effects.
+I am already thinking of additional upgrades though!  I recently added an audio breakout board, so it is now capable of making simple sound effects.  I also added an SDcard and have been able to re-write the flash memory in the PIC with code from the SDcard.
